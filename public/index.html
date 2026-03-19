@@ -262,7 +262,7 @@ function applyLoadedGame(data) {
   game.player.stepCount = data.stepCount || 0;
   // Re-link skills from SKILLS object
   game.party.forEach(p => {
-    const skillMap = { 'javier': [SKILLS.golpeFuerte, SKILLS.gritoGuerra], 'marina': [SKILLS.fuego, SKILLS.hielo, SKILLS.cura], 'pau': [SKILLS.punoSagrado, SKILLS.curaMayor, SKILLS.proteger] };
+    const skillMap = { 'javier': [SKILLS.golpeFuerte, SKILLS.gritoGuerra], 'marina': [SKILLS.fuego, SKILLS.hielo, SKILLS.cura], 'pau': [SKILLS.punoSagrado, SKILLS.curaMayor, SKILLS.proteger], 'gojo': [SKILLS.infinito, SKILLS.azulAtraccion, SKILLS.rojoRepulsion, SKILLS.hollowPurple, SKILLS.domainVoid], 'sukuna': [SKILLS.cleave, SKILLS.dismantle, SKILLS.fireArrow, SKILLS.fuga, SKILLS.domainShrine] };
     if (skillMap[p.id]) p.skills = skillMap[p.id];
     // Unlock Rayo for high-level Marina
     if (p.id === 'marina' && p.level >= 6 && !p.skills.find(s => s.name === 'Rayo')) p.skills.push(SKILLS.rayo);
@@ -424,26 +424,95 @@ function updateMusicVolume() {
 }
 
 // --- SETTINGS OVERLAY ---
-const settingsState = { open: false, cursor: 0 };
+const settingsState = { open: false, cursor: 0, codeMode: false, codeText: '', codeMsg: '', codeMsgTimer: 0, codeMsgOk: false };
 const SETTINGS_ITEMS = ['musicVolume', 'sfxVolume', 'masterVolume'];
 const SETTINGS_LABELS = ['Música', 'Efectos', 'Master'];
-function toggleSettings() { settingsState.open = !settingsState.open; settingsState.cursor = 0; sfxSelect(); }
+function toggleSettings() { settingsState.open = !settingsState.open; settingsState.cursor = 0; settingsState.codeMode = false; settingsState.codeText = ''; settingsState.codeMsg = ''; settingsState.codeMsgTimer = 0; settingsState.codeMsgOk = false; sfxSelect(); }
 function updateSettings() {
   if (!settingsState.open) return false;
+  // Code input mode
+  if (settingsState.codeMode) {
+    if (settingsState.codeMsgTimer > 0) {
+      settingsState.codeMsgTimer--;
+      if (settingsState.codeMsgTimer <= 0) { settingsState.codeMsg = ''; }
+      if (isJustPressed('Escape') || isJustPressed('Enter')) { settingsState.codeMsgTimer = 0; settingsState.codeMsg = ''; }
+      return true;
+    }
+    if (isJustPressed('Escape')) { settingsState.codeMode = false; return true; }
+    if (isJustPressed('Enter')) {
+      if (settingsState.codeText.length > 0) {
+        const result = redeemCode(settingsState.codeText);
+        settingsState.codeMsg = result.msg;
+        settingsState.codeMsgOk = result.ok;
+        settingsState.codeMsgTimer = 120;
+        settingsState.codeText = '';
+        if (result.ok) { sfxVictory(); saveGame(); } else { sfxDamage(); }
+      }
+      return true;
+    }
+    if (isJustPressed('Backspace')) { settingsState.codeText = settingsState.codeText.slice(0, -1); return true; }
+    // Capture letter keys
+    for (const k of Object.keys(justPressed)) {
+      if (justPressed[k] && k.length === 1 && /[a-zA-Z0-9]/.test(k) && settingsState.codeText.length < 12) {
+        settingsState.codeText += k.toUpperCase();
+      }
+    }
+    return true;
+  }
   if (isJustPressed('Escape') || isJustPressed('o') || isJustPressed('O')) { toggleSettings(); return true; }
-  if (isJustPressed('ArrowUp')) { settingsState.cursor = (settingsState.cursor - 1 + 3) % 3; sfxCursor(); }
-  if (isJustPressed('ArrowDown')) { settingsState.cursor = (settingsState.cursor + 1) % 3; sfxCursor(); }
-  const key = SETTINGS_ITEMS[settingsState.cursor];
-  if (keys['ArrowLeft']) { audioSettings[key] = Math.max(0, audioSettings[key] - 0.02); updateMusicVolume(); saveAudioSettings(); }
-  if (keys['ArrowRight']) { audioSettings[key] = Math.min(1, audioSettings[key] + 0.02); updateMusicVolume(); saveAudioSettings(); }
+  if (isJustPressed('ArrowUp')) { settingsState.cursor = (settingsState.cursor - 1 + 4) % 4; sfxCursor(); }
+  if (isJustPressed('ArrowDown')) { settingsState.cursor = (settingsState.cursor + 1) % 4; sfxCursor(); }
+  if (settingsState.cursor < 3) {
+    const key = SETTINGS_ITEMS[settingsState.cursor];
+    if (keys['ArrowLeft']) { audioSettings[key] = Math.max(0, audioSettings[key] - 0.02); updateMusicVolume(); saveAudioSettings(); }
+    if (keys['ArrowRight']) { audioSettings[key] = Math.min(1, audioSettings[key] + 0.02); updateMusicVolume(); saveAudioSettings(); }
+  } else {
+    // Gift code option - press Enter to activate
+    if (isJustPressed('Enter') || isJustPressed(' ') || isJustPressed('z') || isJustPressed('Z')) {
+      settingsState.codeMode = true;
+      settingsState.codeText = '';
+      settingsState.codeMsg = '';
+      sfxSelect();
+    }
+  }
   return true;
 }
 function drawSettings() {
   if (!settingsState.open) return;
-  // Fondo oscuro
   vctx.fillStyle = 'rgba(0,0,0,0.75)';
   vctx.fillRect(0, 0, VIRT_W, VIRT_H);
-  const bx = 30, by = 40, bw = VIRT_W - 60, bh = 100;
+
+  if (settingsState.codeMode) {
+    // --- GIFT CODE INPUT SCREEN ---
+    const bx = 20, by = 50, bw = VIRT_W - 40, bh = 120;
+    drawBox(vctx, bx, by, bw, bh, '#0A0A2A', '#AA8844');
+    drawText(vctx, 'CÓDIGO DE REGALO', bx + 38, by + 8, PAL.gold, 10);
+
+    drawText(vctx, 'Escribe un código:', bx + 12, by + 30, PAL.white, 8);
+    // Input box
+    const ibx = bx + 12, iby = by + 44, ibw = bw - 24, ibh = 16;
+    vctx.fillStyle = '#111133';
+    vctx.fillRect(ibx, iby, ibw, ibh);
+    vctx.strokeStyle = '#6688CC';
+    vctx.strokeRect(ibx + 0.5, iby + 0.5, ibw, ibh);
+    // Text + blinking cursor
+    const displayText = settingsState.codeText + (Math.floor(game.tick / 15) % 2 ? '_' : '');
+    drawText(vctx, displayText, ibx + 4, iby + 4, '#44AAFF', 9);
+
+    // Message display
+    if (settingsState.codeMsg) {
+      const msgColor = settingsState.codeMsgOk ? '#44FF88' : '#FF4444';
+      const msgLines = wrapText(settingsState.codeMsg, 28);
+      msgLines.forEach((line, i) => {
+        drawText(vctx, line, bx + 12, by + 68 + i * 12, msgColor, 8);
+      });
+    }
+
+    drawText(vctx, 'ENTER Canjear  ESC Volver', bx + 20, by + bh - 14, PAL.darkGray, 7);
+    return;
+  }
+
+  const bx = 30, by = 35, bw = VIRT_W - 60, bh = 125;
   drawBox(vctx, bx, by, bw, bh, '#0A0A2A', '#6688CC');
   drawText(vctx, 'CONFIGURACIÓN', bx + 42, by + 6, PAL.gold, 10);
   SETTINGS_ITEMS.forEach((key, i) => {
@@ -458,6 +527,19 @@ function drawSettings() {
     vctx.strokeStyle = '#6688CC'; vctx.strokeRect(barX + 0.5, sy + 0.5, barW, 7);
     drawText(vctx, Math.round(val * 100) + '%', barX + barW + 4, sy, PAL.lightGray, 7);
   });
+  // Gift code option (4th item)
+  const codeSy = by + 26 + 3 * 22;
+  const codeSel = settingsState.cursor === 3;
+  if (codeSel) drawText(vctx, '▶', bx + 6, codeSy, PAL.yellow, 8);
+  drawText(vctx, '🎁 Código Regalo', bx + 16, codeSy, codeSel ? '#FFD700' : '#DDAA44', 8);
+  // Show redeemed codes
+  const redeemed = [];
+  if (game.flags.code_GOJO) redeemed.push('GOJO');
+  if (game.flags.code_SUKUNA) redeemed.push('SUKUNA');
+  if (redeemed.length > 0) {
+    drawText(vctx, '✓ ' + redeemed.join(', '), bx + 16, codeSy + 10, '#44FF88', 6);
+  }
+
   drawText(vctx, '← → Ajustar  ↑↓ Navegar  ESC Cerrar', bx + 8, by + bh - 14, PAL.darkGray, 7);
 }
 
@@ -605,8 +687,145 @@ function sfxDrain() {
     o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.2);
   }, i*60);
 }
+// --- GOJO SFX ---
+// Azul (Blue / Atracción gravitacional) - sonido de implosión
+function sfxGojoBlue() {
+  if (!audioCtx) return; const v = getSfxVol();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(600, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime+0.4);
+  g.gain.setValueAtTime(v*0.25, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.5);
+  o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.5);
+  // whoosh suction
+  const n = audioCtx.createBufferSource(); n.buffer = noiseBuffer(0.4);
+  const f = audioCtx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(2000, audioCtx.currentTime); f.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime+0.35); f.Q.value = 3;
+  const ng = audioCtx.createGain(); ng.gain.setValueAtTime(v*0.15, audioCtx.currentTime); ng.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.35);
+  n.connect(f); f.connect(ng); ng.connect(audioCtx.destination); n.start();
+  // harmonic
+  [200,300,400].forEach((fr,i) => setTimeout(() => { playTone(fr, 0.2, 'sine', 0.08); }, i*40));
+}
+// Rojo (Red / Repulsión) - sonido de explosión expansiva
+function sfxGojoRed() {
+  if (!audioCtx) return; const v = getSfxVol();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(80, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime+0.1); o.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime+0.4);
+  g.gain.setValueAtTime(v*0.3, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.5);
+  o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.5);
+  // explosion noise
+  const n = audioCtx.createBufferSource(); n.buffer = noiseBuffer(0.25);
+  const ng = audioCtx.createGain(); ng.gain.setValueAtTime(v*0.3, audioCtx.currentTime+0.02); ng.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.25);
+  n.connect(ng); ng.connect(audioCtx.destination); n.start();
+}
+// Hollow Purple (Púrpura Hueco) - convergencia azul+rojo → devastación
+function sfxHollowPurple() {
+  if (!audioCtx) return; const v = getSfxVol();
+  // Blue phase (rising)
+  const o1 = audioCtx.createOscillator(), g1 = audioCtx.createGain();
+  o1.type = 'sine'; o1.frequency.setValueAtTime(200, audioCtx.currentTime); o1.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime+0.3);
+  g1.gain.setValueAtTime(v*0.15, audioCtx.currentTime); g1.gain.exponentialRampToValueAtTime(v*0.25, audioCtx.currentTime+0.3); g1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.35);
+  o1.connect(g1); g1.connect(audioCtx.destination); o1.start(); o1.stop(audioCtx.currentTime+0.4);
+  // Red phase (falling)
+  const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+  o2.type = 'sawtooth'; o2.frequency.setValueAtTime(500, audioCtx.currentTime+0.1); o2.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime+0.35);
+  g2.gain.setValueAtTime(0.001, audioCtx.currentTime); g2.gain.linearRampToValueAtTime(v*0.2, audioCtx.currentTime+0.15); g2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.4);
+  o2.connect(g2); g2.connect(audioCtx.destination); o2.start(); o2.stop(audioCtx.currentTime+0.45);
+  // Purple convergence BOOM
+  setTimeout(() => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(100, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime+0.5);
+    g.gain.setValueAtTime(v*0.35, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.6);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.65);
+    const n = audioCtx.createBufferSource(); n.buffer = noiseBuffer(0.5);
+    const ng = audioCtx.createGain(); ng.gain.setValueAtTime(v*0.3, audioCtx.currentTime); ng.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.4);
+    n.connect(ng); ng.connect(audioCtx.destination); n.start();
+    // eerie purple hum
+    [260,330,400].forEach((fr,i) => setTimeout(() => { playTone(fr, 0.35, 'sine', 0.06); }, i*30));
+  }, 350);
+}
+// Domain Expansion (both Gojo & Sukuna)
+function sfxDomainExpansion() {
+  if (!audioCtx) return; const v = getSfxVol();
+  // deep bass rumble
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'sawtooth'; o.frequency.value = 40;
+  g.gain.setValueAtTime(0.001, audioCtx.currentTime); g.gain.linearRampToValueAtTime(v*0.3, audioCtx.currentTime+0.3); g.gain.setValueAtTime(v*0.3, audioCtx.currentTime+0.8); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+1.2);
+  o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+1.3);
+  // rising tension
+  const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+  o2.type = 'sine'; o2.frequency.setValueAtTime(100, audioCtx.currentTime); o2.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime+0.8); o2.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime+1.0);
+  g2.gain.setValueAtTime(0.001, audioCtx.currentTime); g2.gain.linearRampToValueAtTime(v*0.2, audioCtx.currentTime+0.4); g2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+1.0);
+  o2.connect(g2); g2.connect(audioCtx.destination); o2.start(); o2.stop(audioCtx.currentTime+1.1);
+  // noise explosion at peak
+  setTimeout(() => {
+    const n = audioCtx.createBufferSource(); n.buffer = noiseBuffer(0.6);
+    const ng = audioCtx.createGain(); ng.gain.setValueAtTime(v*0.35, audioCtx.currentTime); ng.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.5);
+    n.connect(ng); ng.connect(audioCtx.destination); n.start();
+    // ominous chord
+    [80,120,180,240].forEach(fr => { playTone(fr, 0.5, 'square', 0.05); });
+  }, 700);
+}
+// --- SUKUNA SFX ---
+// Cleave - corte preciso adaptativo
+function sfxSukunaCleave() {
+  if (!audioCtx) return; const v = getSfxVol();
+  const n = audioCtx.createBufferSource(); n.buffer = noiseBuffer(0.12);
+  const f = audioCtx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 4000; f.Q.value = 2;
+  const ng = audioCtx.createGain(); ng.gain.setValueAtTime(v*0.3, audioCtx.currentTime); ng.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.1);
+  n.connect(f); f.connect(ng); ng.connect(audioCtx.destination); n.start();
+  // dark undertone
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(500, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime+0.15);
+  g.gain.setValueAtTime(v*0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.15);
+  o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.2);
+}
+// Dismantle / Fuga - corte dimensional devastador (multi-slash)
+function sfxSukunaDismantle() {
+  if (!audioCtx) return; const v = getSfxVol();
+  for (let i = 0; i < 4; i++) setTimeout(() => {
+    const n = audioCtx.createBufferSource(); n.buffer = noiseBuffer(0.08);
+    const f = audioCtx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3000 + i*500; f.Q.value = 3;
+    const g = audioCtx.createGain(); g.gain.setValueAtTime(v*0.25, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.06);
+    n.connect(f); f.connect(g); g.connect(audioCtx.destination); n.start();
+    playTone(600 - i*100, 0.1, 'sawtooth', 0.1);
+  }, i*50);
+  // final impact
+  setTimeout(() => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(100, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime+0.2);
+    g.gain.setValueAtTime(v*0.3, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.25);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.3);
+  }, 200);
+}
+// Flecha de Fuego de Sukuna
+function sfxSukunaFireArrow() {
+  if (!audioCtx) return; const v = getSfxVol();
+  // charging whoosh
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(100, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime+0.2);
+  g.gain.setValueAtTime(v*0.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(v*0.25, audioCtx.currentTime+0.15); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.4);
+  o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.45);
+  // fire burst
+  setTimeout(() => {
+    sfxFire();
+    const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+    o2.type = 'square'; o2.frequency.setValueAtTime(200, audioCtx.currentTime); o2.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime+0.3);
+    g2.gain.setValueAtTime(v*0.2, audioCtx.currentTime); g2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.3);
+    o2.connect(g2); g2.connect(audioCtx.destination); o2.start(); o2.stop(audioCtx.currentTime+0.35);
+  }, 200);
+}
 // Mapeo: nombre de skill → SFX
 function sfxForSkill(skillName) {
+  // -- JJK SKILLS (check first, before generic matches) --
+  // Gojo SFX
+  if (skillName.includes('蒼') || skillName.includes('Infinito')) return sfxGojoBlue();
+  if (skillName.includes('赫')) return sfxGojoRed();
+  if (skillName.includes('茈')) return sfxHollowPurple();
+  if (skillName.includes('Vacío Infinito')) return sfxDomainExpansion();
+  // Sukuna SFX
+  if (skillName.includes('Cleave')) return sfxSukunaCleave();
+  if (skillName.includes('Dismantle') || skillName.includes('Fuga')) return sfxSukunaDismantle();
+  if (skillName.includes('Flecha de Fuego')) return sfxSukunaFireArrow();
+  if (skillName.includes('Altar Maligno')) return sfxDomainExpansion();
+  // -- Original skills --
   if (skillName.includes('Fuego')) return sfxFire();
   if (skillName.includes('Hielo')) return sfxIce();
   if (skillName.includes('Rayo')) return sfxThunder();
@@ -873,6 +1092,60 @@ const sprMarina = makeCharSprite(PAL.skin, PAL.purple, false, PAL.purple, '#6622
 const sprPau = makeCharSprite(PAL.skinDark, PAL.darkBrown, false, PAL.orange, PAL.brown, false, (ctx, f, oy) => {
   // Cinta en la cabeza
   rect(ctx, 4, oy + 1, 8, 1, PAL.red);
+});
+
+// --- Gojo Satoru sprite (pelo blanco, venda negra, uniforme negro) ---
+const sprGojo = makeCharSprite(PAL.skin, PAL.white, false, '#1A1A2E', '#111122', false, (ctx, f, oy) => {
+  // Blindfold (venda negra en los ojos)
+  if (f === 0) {
+    rect(ctx, 5, oy + 3, 6, 1, '#1A1A2E');
+    // Six Eyes glow through blindfold
+    px(ctx, 6, oy + 3, '#4488FF');
+    px(ctx, 9, oy + 3, '#4488FF');
+  } else if (f === 1) {
+    rect(ctx, 4, oy + 3, 4, 1, '#1A1A2E');
+    px(ctx, 5, oy + 3, '#4488FF');
+  } else if (f === 2) {
+    rect(ctx, 8, oy + 3, 4, 1, '#1A1A2E');
+    px(ctx, 10, oy + 3, '#4488FF');
+  } else {
+    rect(ctx, 5, oy + 3, 6, 1, '#1A1A2E');
+  }
+  // Collar alto del uniforme
+  rect(ctx, 5, oy + 6, 6, 1, '#2A2A3E');
+  // Infinity aura shimmer (subtle blue glow)
+  px(ctx, 3, oy + 4, '#4488FF22');
+  px(ctx, 12, oy + 4, '#4488FF22');
+});
+
+// --- Ryomen Sukuna sprite (pelo rosa, tatuajes, túnica oscura) ---
+const sprSukuna = makeCharSprite(PAL.skin, '#DD6688', false, '#3D0C11', '#2A0A0E', false, (ctx, f, oy) => {
+  // Tattoo marks on face (lineas en la cara)
+  if (f === 0) {
+    px(ctx, 6, oy + 4, '#333');
+    px(ctx, 9, oy + 4, '#333');
+    px(ctx, 7, oy + 5, '#333');
+    px(ctx, 8, oy + 5, '#333');
+    // Menacing eyes
+    px(ctx, 6, oy + 3, '#FF3344');
+    px(ctx, 9, oy + 3, '#FF3344');
+  } else if (f === 1) {
+    px(ctx, 5, oy + 4, '#333');
+    px(ctx, 6, oy + 5, '#333');
+    px(ctx, 5, oy + 3, '#FF3344');
+  } else if (f === 2) {
+    px(ctx, 10, oy + 4, '#333');
+    px(ctx, 9, oy + 5, '#333');
+    px(ctx, 10, oy + 3, '#FF3344');
+  }
+  // Body tattoo lines
+  px(ctx, 5, oy + 8, '#333');
+  px(ctx, 10, oy + 8, '#333');
+  px(ctx, 6, oy + 9, '#333');
+  px(ctx, 9, oy + 9, '#333');
+  // Dark aura
+  px(ctx, 3, oy + 6, '#FF334422');
+  px(ctx, 12, oy + 6, '#FF334422');
 });
 
 // NPC sprites
@@ -1390,6 +1663,18 @@ const SKILLS = {
   punoSagrado: { name: 'Puño Sagrado', cost: 6, power: 18, type: 'magic', target: 'enemy', desc: 'Daño sagrado' },
   curaMayor: { name: 'Cura Mayor', cost: 12, power: 60, type: 'heal', target: 'ally', desc: 'Gran curación' },
   proteger: { name: 'Proteger', cost: 10, power: 0, type: 'buff_def', target: 'party', desc: '+DEF al grupo' },
+  // Gojo Satoru
+  infinito: { name: 'Infinito', cost: 8, power: 0, type: 'buff_def', target: 'party', desc: 'Barrera absoluta +DEF' },
+  azulAtraccion: { name: '術式順転「蒼」', cost: 12, power: 28, type: 'magic', target: 'enemy', desc: 'Atracción gravitacional' },
+  rojoRepulsion: { name: '術式反転「赫」', cost: 14, power: 32, type: 'magic', target: 'enemy', desc: 'Repulsión explosiva' },
+  hollowPurple: { name: '虚式「茈」', cost: 30, power: 65, type: 'magic', target: 'enemy', desc: 'Púrpura Hueco - aniquilación' },
+  domainVoid: { name: 'Dominio: Vacío Infinito', cost: 40, power: 80, type: 'magic', target: 'enemy', desc: 'Expansión de dominio' },
+  // Ryomen Sukuna
+  cleave: { name: 'Cleave', cost: 6, power: 25, type: 'physical', target: 'enemy', desc: 'Corte adaptativo' },
+  dismantle: { name: 'Dismantle', cost: 10, power: 35, type: 'physical', target: 'enemy', desc: 'Corte que desmantela todo' },
+  fireArrow: { name: 'Flecha de Fuego', cost: 15, power: 40, type: 'magic', target: 'enemy', desc: 'Llamas del Rey de las Maldiciones' },
+  domainShrine: { name: 'Dominio: Altar Maligno', cost: 45, power: 90, type: 'magic', target: 'enemy', desc: 'Expansión de dominio' },
+  fuga: { name: 'Fuga', cost: 20, power: 50, type: 'physical', target: 'enemy', desc: 'Corte dimensional devastador' },
 };
 
 // --- ESTADO DEL JUEGO ---
@@ -1451,6 +1736,46 @@ function addPau() {
     skills: [SKILLS.punoSagrado, SKILLS.curaMayor, SKILLS.proteger],
     sprite: 'pau',
   });
+}
+
+function addGojo() {
+  if (game.party.find(p => p.id === 'gojo')) return;
+  game.party.push({
+    id: 'gojo', name: 'Gojo', class: 'Hechicero', level: 10,
+    hp: 150, maxHp: 150, mp: 120, maxMp: 120,
+    atk: 14, def: 20, spd: 18, mag: 28,
+    exp: 0, nextExp: 100,
+    skills: [SKILLS.infinito, SKILLS.azulAtraccion, SKILLS.rojoRepulsion, SKILLS.hollowPurple, SKILLS.domainVoid],
+    sprite: 'gojo',
+  });
+}
+
+function addSukuna() {
+  if (game.party.find(p => p.id === 'sukuna')) return;
+  game.party.push({
+    id: 'sukuna', name: 'Sukuna', class: 'Rey Maldición', level: 10,
+    hp: 180, maxHp: 180, mp: 100, maxMp: 100,
+    atk: 30, def: 16, spd: 16, mag: 22,
+    exp: 0, nextExp: 100,
+    skills: [SKILLS.cleave, SKILLS.dismantle, SKILLS.fireArrow, SKILLS.fuga, SKILLS.domainShrine],
+    sprite: 'sukuna',
+  });
+}
+
+// --- SISTEMA DE CÓDIGOS DE REGALO ---
+const GIFT_CODES = {
+  'GOJO': { char: 'gojo', msg: '¡Gojo Satoru se une al grupo! El hechicero más fuerte.' },
+  'SUKUNA': { char: 'sukuna', msg: '¡Ryomen Sukuna se une al grupo! El Rey de las Maldiciones.' },
+};
+function redeemCode(code) {
+  const c = code.trim().toUpperCase();
+  if (!GIFT_CODES[c]) return { ok: false, msg: 'Código no válido' };
+  const gift = GIFT_CODES[c];
+  if (game.flags['code_' + c]) return { ok: false, msg: 'Ya has canjeado este código' };
+  if (gift.char === 'gojo') addGojo();
+  if (gift.char === 'sukuna') addSukuna();
+  game.flags['code_' + c] = true;
+  return { ok: true, msg: gift.msg };
 }
 
 // --- DIÁLOGOS ---
@@ -2116,27 +2441,265 @@ function executeSkill(caster, skill, target) {
     // Floating damage number
     const tdx = target.isEnemy ? 50 + target.index * 45 + 10 : 195;
     const tdy = target.isEnemy ? 40 + target.index * 25 : 30 + target.index * 35;
-    addFloatingText(tdx, tdy - 5, '-' + damage, skill.name.includes('Fuego') ? '#FF6622' : skill.name.includes('Hielo') ? '#44CCFF' : skill.name.includes('Rayo') ? '#FFFF00' : '#CC66FF');
+    // Floating damage number with JJK colors
+    let floatColor = '#CC66FF';
+    if (skill.name.includes('Fuego') || skill.name.includes('Flecha')) floatColor = '#FF6622';
+    else if (skill.name.includes('Hielo')) floatColor = '#44CCFF';
+    else if (skill.name.includes('Rayo')) floatColor = '#FFFF00';
+    else if (skill.name.includes('蒼')) floatColor = '#4488FF';
+    else if (skill.name.includes('赫')) floatColor = '#FF4466';
+    else if (skill.name.includes('茈')) floatColor = '#AA44FF';
+    else if (skill.name.includes('Vacío')) floatColor = '#AADDFF';
+    else if (skill.name.includes('Cleave') || skill.name.includes('Dismantle') || skill.name.includes('Fuga')) floatColor = '#FF3355';
+    else if (skill.name.includes('Altar')) floatColor = '#FF1133';
+    addFloatingText(tdx, tdy - 5, '-' + damage, floatColor);
 
     // Element-specific color + flash
     let pColor, pColor2;
-    if (skill.name.includes('Fuego')) { pColor = '#FF4400'; pColor2 = '#FF8800'; b.flashColor = '#FF440066'; }
+    if (skill.name.includes('Fuego') || skill.name.includes('Flecha de Fuego')) { pColor = '#FF4400'; pColor2 = '#FF8800'; b.flashColor = '#FF440066'; }
     else if (skill.name.includes('Hielo')) { pColor = '#44CCFF'; pColor2 = '#AAEEFF'; b.flashColor = '#44CCFF66'; }
     else if (skill.name.includes('Rayo')) { pColor = '#FFFF00'; pColor2 = '#FFFF88'; b.flashColor = '#FFFF0066'; }
+    // --- JJK SPECIAL COLORS ---
+    else if (skill.name.includes('蒼')) { pColor = '#2266FF'; pColor2 = '#66AAFF'; b.flashColor = '#2266FF66'; }
+    else if (skill.name.includes('赫')) { pColor = '#FF2244'; pColor2 = '#FF6688'; b.flashColor = '#FF224466'; }
+    else if (skill.name.includes('茈')) { pColor = '#8800FF'; pColor2 = '#CC66FF'; b.flashColor = '#8800FF88'; }
+    else if (skill.name.includes('Vacío Infinito')) { pColor = '#AACCFF'; pColor2 = '#FFFFFF'; b.flashColor = '#AACCFF88'; }
+    else if (skill.name.includes('Cleave')) { pColor = '#FF3355'; pColor2 = '#FF8899'; b.flashColor = '#FF335566'; }
+    else if (skill.name.includes('Dismantle') || skill.name.includes('Fuga')) { pColor = '#FF1133'; pColor2 = '#FF4466'; b.flashColor = '#FF113388'; }
+    else if (skill.name.includes('Altar Maligno')) { pColor = '#880022'; pColor2 = '#FF3344'; b.flashColor = '#88002288'; }
     else { pColor = '#CC44FF'; pColor2 = '#EE88FF'; b.flashColor = '#CC44FF44'; }
 
-    // Rich particle effects
-    for (let i = 0; i < 16; i++) {
-      const angle = (i / 16) * Math.PI * 2;
-      const speed = 1.5 + Math.random() * 3;
-      b.particles.push({
-        x: tdx, y: tdy + 15,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 1,
-        life: 22 + Math.random() * 18,
-        color: i % 3 === 0 ? pColor2 : pColor,
-        size: 1 + Math.random() * 2,
-      });
+    // --- JJK ANIME SPECIAL ANIMATIONS ---
+    const isGojoBlue = skill.name.includes('蒼');
+    const isGojoRed = skill.name.includes('赫');
+    const isHollowPurple = skill.name.includes('茈');
+    const isDomainVoid = skill.name.includes('Vacío Infinito');
+    const isCleave = skill.name.includes('Cleave');
+    const isDismantle = skill.name.includes('Dismantle');
+    const isFuga = skill.name.includes('Fuga');
+    const isDomainShrine = skill.name.includes('Altar Maligno');
+    const isFireArrow = skill.name.includes('Flecha de Fuego') && caster.id === 'sukuna';
+
+    if (isGojoBlue) {
+      // BLUE: Gravitational attraction - particles spiral inward to target
+      b.flashTimer = 20; b.shakeTimer = 10;
+      for (let i = 0; i < 24; i++) {
+        const angle = (i / 24) * Math.PI * 2;
+        const dist = 20 + Math.random() * 15;
+        b.particles.push({
+          x: tdx + Math.cos(angle) * dist, y: tdy + 15 + Math.sin(angle) * dist,
+          vx: -Math.cos(angle) * (2 + Math.random()), vy: -Math.sin(angle) * (2 + Math.random()),
+          life: 25 + Math.random() * 10,
+          color: i % 3 === 0 ? '#88BBFF' : '#2266FF', size: 1 + Math.random(),
+        });
+      }
+      // Core implosion glow
+      for (let i = 0; i < 6; i++) {
+        b.particles.push({
+          x: tdx + (Math.random()-0.5)*6, y: tdy + 15 + (Math.random()-0.5)*6,
+          vx: 0, vy: 0, life: 30, color: '#FFFFFF', size: 2 + Math.random(),
+        });
+      }
+    } else if (isGojoRed) {
+      // RED: Repulsion explosion - particles explode outward
+      b.flashTimer = 18; b.shakeTimer = 12;
+      for (let i = 0; i < 28; i++) {
+        const angle = (i / 28) * Math.PI * 2;
+        const speed = 3 + Math.random() * 4;
+        b.particles.push({
+          x: tdx, y: tdy + 15,
+          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+          life: 20 + Math.random() * 10,
+          color: i % 3 === 0 ? '#FF6688' : '#FF2244', size: 1.5 + Math.random(),
+        });
+      }
+      // Shockwave ring
+      for (let i = 0; i < 16; i++) {
+        const a = (i/16)*Math.PI*2;
+        b.particles.push({
+          x: tdx, y: tdy + 15, vx: Math.cos(a)*5, vy: Math.sin(a)*5,
+          life: 12, color: '#FF8888', size: 1,
+        });
+      }
+    } else if (isHollowPurple) {
+      // HOLLOW PURPLE: Blue+Red converge then MASSIVE purple beam
+      b.flashTimer = 28; b.shakeTimer = 20;
+      // Blue particles from left
+      for (let i = 0; i < 12; i++) {
+        b.particles.push({
+          x: tdx - 30 - Math.random()*10, y: tdy + 10 + (Math.random()-0.5)*20,
+          vx: 4 + Math.random()*2, vy: (Math.random()-0.5)*1,
+          life: 18 + Math.random()*8, color: '#2266FF', size: 1.5,
+        });
+      }
+      // Red particles from right
+      for (let i = 0; i < 12; i++) {
+        b.particles.push({
+          x: tdx + 30 + Math.random()*10, y: tdy + 10 + (Math.random()-0.5)*20,
+          vx: -4 - Math.random()*2, vy: (Math.random()-0.5)*1,
+          life: 18 + Math.random()*8, color: '#FF2244', size: 1.5,
+        });
+      }
+      // Purple explosion at center (delayed feel via fast particles)
+      for (let i = 0; i < 32; i++) {
+        const angle = (i / 32) * Math.PI * 2;
+        b.particles.push({
+          x: tdx, y: tdy + 15,
+          vx: Math.cos(angle) * (2 + Math.random()*3),
+          vy: Math.sin(angle) * (2 + Math.random()*3),
+          life: 28 + Math.random() * 12,
+          color: i % 4 === 0 ? '#FFFFFF' : i % 2 === 0 ? '#CC66FF' : '#8800FF',
+          size: 2 + Math.random() * 2,
+        });
+      }
+      // Beam trail
+      for (let i = 0; i < 20; i++) {
+        b.particles.push({
+          x: 190 + (tdx - 190) * (i/20), y: tdy + 15 + (Math.random()-0.5)*6,
+          vx: (Math.random()-0.5)*0.5, vy: (Math.random()-0.5)*0.5,
+          life: 15 + Math.random()*10, color: '#BB44FF', size: 1 + Math.random(),
+        });
+      }
+    } else if (isDomainVoid) {
+      // DOMAIN EXPANSION: UNLIMITED VOID - massive screen effect
+      b.flashTimer = 35; b.shakeTimer = 25; b.flashColor = '#AADDFF99';
+      // Screen-filling particles (void/space effect)
+      for (let i = 0; i < 50; i++) {
+        b.particles.push({
+          x: Math.random() * VIRT_W, y: Math.random() * VIRT_H,
+          vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+          life: 40 + Math.random()*20,
+          color: ['#FFFFFF','#88BBFF','#AACCFF','#4488FF','#DDEEFF'][Math.floor(Math.random()*5)],
+          size: 1 + Math.random()*3,
+        });
+      }
+      // Converging infinity lines
+      for (let i = 0; i < 20; i++) {
+        const a = (i/20)*Math.PI*2;
+        b.particles.push({
+          x: VIRT_W/2 + Math.cos(a)*80, y: VIRT_H/2 + Math.sin(a)*60,
+          vx: -Math.cos(a)*3, vy: -Math.sin(a)*3,
+          life: 30, color: '#FFFFFF', size: 1,
+        });
+      }
+    } else if (isCleave) {
+      // CLEAVE: Single precise adaptive slash
+      b.flashTimer = 10; b.shakeTimer = 6;
+      // Diagonal slash line
+      for (let i = 0; i < 15; i++) {
+        b.particles.push({
+          x: tdx - 10 + i*1.5, y: tdy + 25 - i*2,
+          vx: 1 + Math.random(), vy: -1 - Math.random(),
+          life: 12 + Math.random()*6,
+          color: i % 2 === 0 ? '#FF3355' : '#FFFFFF', size: 1,
+        });
+      }
+      // Blood-red impact
+      for (let i = 0; i < 6; i++) {
+        b.particles.push({
+          x: tdx, y: tdy + 15, vx: (Math.random()-0.5)*3, vy: -Math.random()*2,
+          life: 15, color: '#FF1133', size: 1.5,
+        });
+      }
+    } else if (isDismantle || isFuga) {
+      // DISMANTLE/FUGA: Multiple invisible slashes criss-crossing
+      b.flashTimer = isFuga ? 25 : 16; b.shakeTimer = isFuga ? 18 : 10;
+      const slashCount = isFuga ? 6 : 4;
+      for (let s = 0; s < slashCount; s++) {
+        const sAngle = (s / slashCount) * Math.PI;
+        for (let i = 0; i < 10; i++) {
+          const t = (i / 10) - 0.5;
+          b.particles.push({
+            x: tdx + Math.cos(sAngle) * t * 25,
+            y: tdy + 15 + Math.sin(sAngle) * t * 25,
+            vx: Math.cos(sAngle + Math.PI/2) * (1 + Math.random()),
+            vy: Math.sin(sAngle + Math.PI/2) * (1 + Math.random()),
+            life: 14 + Math.random()*8,
+            color: s % 2 === 0 ? '#FF1133' : '#FF4466', size: 1,
+          });
+        }
+      }
+      // Devastation core (bigger for Fuga)
+      const coreCount = isFuga ? 20 : 8;
+      for (let i = 0; i < coreCount; i++) {
+        const a = (i/coreCount)*Math.PI*2;
+        b.particles.push({
+          x: tdx, y: tdy + 15,
+          vx: Math.cos(a) * (isFuga ? 4 : 2.5),
+          vy: Math.sin(a) * (isFuga ? 4 : 2.5),
+          life: 18 + Math.random()*10,
+          color: '#FF3344', size: isFuga ? 2 : 1.5,
+        });
+      }
+    } else if (isDomainShrine) {
+      // DOMAIN EXPANSION: MALEVOLENT SHRINE - dark temple / blood red screen
+      b.flashTimer = 35; b.shakeTimer = 28; b.flashColor = '#88002288';
+      // Dark shrine pillars rising
+      for (let p = 0; p < 6; p++) {
+        const px = 20 + p * 36;
+        for (let i = 0; i < 8; i++) {
+          b.particles.push({
+            x: px + (Math.random()-0.5)*6, y: VIRT_H - i*12,
+            vx: 0, vy: -1 - Math.random()*2,
+            life: 35 + Math.random()*15,
+            color: ['#880022','#AA1133','#661122','#FF3344'][Math.floor(Math.random()*4)],
+            size: 2 + Math.random()*2,
+          });
+        }
+      }
+      // Cross-cutting slashes everywhere
+      for (let i = 0; i < 40; i++) {
+        b.particles.push({
+          x: Math.random() * VIRT_W, y: Math.random() * VIRT_H,
+          vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6,
+          life: 20 + Math.random()*15,
+          color: i % 3 === 0 ? '#FFFFFF' : '#FF2244',
+          size: 1 + Math.random(),
+        });
+      }
+      // Ominous glow at center
+      for (let i = 0; i < 10; i++) {
+        b.particles.push({
+          x: tdx + (Math.random()-0.5)*10, y: tdy + 15 + (Math.random()-0.5)*10,
+          vx: 0, vy: -0.5, life: 40, color: '#FF0022', size: 2 + Math.random(),
+        });
+      }
+    } else if (isFireArrow) {
+      // SUKUNA'S FIRE ARROW: Charged fire projectile
+      b.flashTimer = 18; b.shakeTimer = 12;
+      // Arrow trail from caster to target
+      for (let i = 0; i < 15; i++) {
+        const t = i / 15;
+        b.particles.push({
+          x: 190 + (tdx - 190) * t, y: 50 + (tdy + 15 - 50) * t + (Math.random()-0.5)*4,
+          vx: 2 * (1-t), vy: (Math.random()-0.5)*1,
+          life: 18 + Math.random()*8,
+          color: i % 3 === 0 ? '#FFAA00' : '#FF4400', size: 1.5 + (1-t)*2,
+        });
+      }
+      // Explosion at target
+      for (let i = 0; i < 18; i++) {
+        const a = (i/18)*Math.PI*2;
+        b.particles.push({
+          x: tdx, y: tdy + 15,
+          vx: Math.cos(a)*(2+Math.random()*3), vy: Math.sin(a)*(2+Math.random()*3),
+          life: 20+Math.random()*10, color: i%2?'#FF6600':'#FF2200', size: 1.5+Math.random(),
+        });
+      }
+    } else {
+      // Rich particle effects (default)
+      for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2;
+        const speed = 1.5 + Math.random() * 3;
+        b.particles.push({
+          x: tdx, y: tdy + 15,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 1,
+          life: 22 + Math.random() * 18,
+          color: i % 3 === 0 ? pColor2 : pColor,
+          size: 1 + Math.random() * 2,
+        });
+      }
     }
     // Extra sparkle trail for magic
     for (let i = 0; i < 6; i++) {
@@ -2187,13 +2750,29 @@ function executeSkill(caster, skill, target) {
     b.message = caster.name + ' usa ' + skill.name + '! +DEF para todos';
     b.messageTimer = 50;
     b.state = 'animMagic';
-    sfxBuff();
+    sfxForSkill(skill.name);
+    // Special Infinity animation for Gojo
+    const isInfinity = skill.name.includes('Infinito');
     b.party.forEach((p, i) => {
-      if (p.alive) for (let j = 0; j < 4; j++) b.particles.push({
-        x: 190 + (Math.random()-0.5)*10, y: 40 + i*35,
-        vx: (Math.random()-0.5)*2, vy: -1 - Math.random(),
-        life: 20 + Math.random()*10, color: j%2?'#4488FF':'#88BBFF', size: 1,
-      });
+      if (p.alive) {
+        if (isInfinity) {
+          // Infinity barrier - blue hexagonal shield particles
+          for (let j = 0; j < 10; j++) {
+            const a = (j/10)*Math.PI*2;
+            b.particles.push({
+              x: 190 + Math.cos(a)*8, y: 40 + i*35 + Math.sin(a)*8,
+              vx: Math.cos(a)*0.5, vy: Math.sin(a)*0.5,
+              life: 30+Math.random()*10, color: j%3===0?'#FFFFFF':'#4488FF', size: 1.5,
+            });
+          }
+        } else {
+          for (let j = 0; j < 4; j++) b.particles.push({
+            x: 190 + (Math.random()-0.5)*10, y: 40 + i*35,
+            vx: (Math.random()-0.5)*2, vy: -1 - Math.random(),
+            life: 20 + Math.random()*10, color: j%2?'#4488FF':'#88BBFF', size: 1,
+          });
+        }
+      }
     });
   }
 }
@@ -2406,9 +2985,10 @@ function drawBattle() {
   });
 
   // Dibujar party
+  const partySpacing = b.party.length > 3 ? 28 : 35;
   b.party.forEach((p, i) => {
     const px = 180 + shakeX;
-    const py = 30 + i * 35 + shakeY;
+    const py = 20 + i * partySpacing + shakeY;
     if (p.alive) {
       drawBattleCharSprite(px, py, p);
     } else {
@@ -2440,16 +3020,18 @@ function drawBattle() {
   drawFloatingTexts();
 
   // UI de batalla
-  drawBox(vctx, 0, VIRT_H - 60, VIRT_W, 60);
+  const uiH = b.party.length > 3 ? 75 : 60;
+  drawBox(vctx, 0, VIRT_H - uiH, VIRT_W, uiH);
 
   // Mostrar stats del party
+  const statRowH = b.party.length > 3 ? 14 : 18;
   b.party.forEach((p, i) => {
     const sx = 140;
-    const sy = VIRT_H - 56 + i * 18;
+    const sy = VIRT_H - uiH + 4 + i * statRowH;
     const nameColor = p.alive ? (p === b.activeChar ? PAL.yellow : PAL.white) : PAL.darkGray;
     drawText(vctx, p.name, sx, sy, nameColor, 7);
     drawText(vctx, 'HP:' + p.hp + '/' + p.maxHp, sx + 48, sy, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.white, 7);
-    drawText(vctx, 'MP:' + p.mp, sx + 48, sy + 8, PAL.cyan, 7);
+    if (statRowH >= 18) drawText(vctx, 'MP:' + p.mp, sx + 48, sy + 8, PAL.cyan, 7);
   });
 
   // Menú de acción
@@ -2980,6 +3562,175 @@ function drawBattleCharSprite(x, y, char) {
     // Wrap detail
     px(vctx, x + 1, y + 15, '#DDDDCC');
     px(vctx, x + 14, y + 15, '#DDDDCC');
+  } else if (char.id === 'gojo') {
+    // Gojo Satoru - El Hechicero más fuerte
+    vctx.fillStyle = 'rgba(0,0,0,0.2)';
+    vctx.beginPath(); vctx.ellipse(x + 8, y + 27, 7, 2, 0, 0, Math.PI*2); vctx.fill();
+
+    // INFINITY BARRIER (animated translucent sphere around Gojo)
+    const infGlow = Math.sin(game.tick * 0.04) * 0.15 + 0.2;
+    vctx.strokeStyle = `rgba(80,150,255,${infGlow})`;
+    vctx.lineWidth = 0.5;
+    vctx.beginPath(); vctx.ellipse(x + 8, y + 12, 14 + Math.sin(game.tick*0.05)*2, 16, 0, 0, Math.PI*2); vctx.stroke();
+
+    // Pelo blanco (spiky, voluminoso)
+    rect(vctx, x + 3, y - 3 + breathe, 10, 3, '#FFFFFF');
+    rect(vctx, x + 2, y - 4 + breathe, 3, 2, '#EEEEFF');
+    rect(vctx, x + 10, y - 3 + breathe, 3, 2, '#EEEEFF');
+    px(vctx, x + 5, y - 5 + breathe, '#FFFFFF');
+    px(vctx, x + 8, y - 5 + breathe, '#FFFFFF');
+    px(vctx, x + 6, y - 6 + breathe, '#EEEEFF');
+    // Hair highlights
+    px(vctx, x + 4, y - 3 + breathe, '#DDEEFF');
+    px(vctx, x + 9, y - 4 + breathe, '#DDEEFF');
+
+    // Cabeza
+    rect(vctx, x + 4, y + 0 + breathe, 8, 8, PAL.skin);
+    // Skin shading
+    px(vctx, x + 11, y + 3 + breathe, '#D4A870');
+
+    // BLINDFOLD (venda negra en los ojos)
+    rect(vctx, x + 3, y + 2 + breathe, 10, 2, '#1A1A2E');
+    // Six Eyes glow through blindfold (animated pulsing blue)
+    const eyeGlow = Math.sin(game.tick * 0.1) * 0.3 + 0.7;
+    vctx.fillStyle = `rgba(68,136,255,${eyeGlow})`;
+    vctx.fillRect(x + 5, y + 2 + breathe, 2, 2);
+    vctx.fillRect(x + 9, y + 2 + breathe, 2, 2);
+
+    // Smirk
+    px(vctx, x + 7, y + 6 + breathe, '#CC8866');
+    px(vctx, x + 8, y + 6 + breathe, '#CC8866');
+
+    // Uniforme Jujutsu (cuello alto negro)
+    rect(vctx, x + 4, y + 7, 8, 1, '#2A2A3E');
+    rect(vctx, x + 2, y + 8, 12, 10, '#1A1A2E');
+    // Collar details
+    rect(vctx, x + 5, y + 8, 6, 1, '#2A2A4E');
+    // Jacket highlights
+    px(vctx, x + 3, y + 10, '#2A2A3E');
+    px(vctx, x + 12, y + 10, '#2A2A3E');
+    // Buttons/zipper line
+    for (let i = 0; i < 4; i++) px(vctx, x + 8, y + 10 + i*2, '#3A3A5E');
+    // Sleeves
+    rect(vctx, x + 1, y + 9, 2, 5, '#1A1A2E');
+    rect(vctx, x + 13, y + 9, 2, 5, '#1A1A2E');
+    // Hands
+    rect(vctx, x + 1, y + 14, 2, 2, PAL.skin);
+    rect(vctx, x + 13, y + 14, 2, 2, PAL.skin);
+
+    // Pantalones
+    rect(vctx, x + 3, y + 18, 4, 6, '#111122');
+    rect(vctx, x + 9, y + 18, 4, 6, '#111122');
+    // Botas
+    rect(vctx, x + 3, y + 23, 4, 3, '#0A0A18');
+    rect(vctx, x + 9, y + 23, 4, 3, '#0A0A18');
+    px(vctx, x + 4, y + 23, '#1A1A28');
+    px(vctx, x + 10, y + 23, '#1A1A28');
+
+    // Floating cursed energy particles around hands
+    for (let i = 0; i < 3; i++) {
+      const pAngle = game.tick * 0.05 + i * 2.1;
+      const ppx = x + 8 + Math.cos(pAngle) * (10 + i);
+      const ppy = y + 12 + Math.sin(pAngle) * 6;
+      vctx.fillStyle = `rgba(80,140,255,${0.3 + Math.sin(game.tick*0.08+i)*0.2})`;
+      vctx.fillRect(ppx, ppy, 1, 1);
+    }
+
+  } else if (char.id === 'sukuna') {
+    // Ryomen Sukuna - El Rey de las Maldiciones
+    vctx.fillStyle = 'rgba(0,0,0,0.25)';
+    vctx.beginPath(); vctx.ellipse(x + 8, y + 27, 7, 2, 0, 0, Math.PI*2); vctx.fill();
+
+    // MALEVOLENT AURA (red/dark energy)
+    const auraGlow = Math.sin(game.tick * 0.05) * 0.15 + 0.25;
+    vctx.strokeStyle = `rgba(255,50,68,${auraGlow})`;
+    vctx.lineWidth = 0.5;
+    vctx.beginPath(); vctx.ellipse(x + 8, y + 12, 12 + Math.sin(game.tick*0.06)*2, 15, 0, 0, Math.PI*2); vctx.stroke();
+
+    // Pelo rosa (spiky y punk)
+    rect(vctx, x + 3, y - 3 + breathe, 10, 3, '#DD6688');
+    rect(vctx, x + 2, y - 2 + breathe, 2, 2, '#CC5577');
+    rect(vctx, x + 11, y - 3 + breathe, 3, 2, '#CC5577');
+    px(vctx, x + 4, y - 4 + breathe, '#DD6688');
+    px(vctx, x + 9, y - 5 + breathe, '#DD6688');
+    px(vctx, x + 7, y - 5 + breathe, '#EE7799');
+    // Hair gradient
+    px(vctx, x + 5, y - 3 + breathe, '#EE88AA');
+
+    // Cabeza
+    rect(vctx, x + 4, y + 0 + breathe, 8, 8, PAL.skin);
+
+    // TATTOO MARKS (líneas características del Rey de las Maldiciones)
+    // Nose bridge line
+    px(vctx, x + 7, y + 1 + breathe, '#444');
+    px(vctx, x + 8, y + 1 + breathe, '#444');
+    // Under-eye marks
+    px(vctx, x + 5, y + 4 + breathe, '#444');
+    px(vctx, x + 10, y + 4 + breathe, '#444');
+    // Cheek lines
+    px(vctx, x + 4, y + 5 + breathe, '#444');
+    px(vctx, x + 11, y + 5 + breathe, '#444');
+    // Chin marks
+    px(vctx, x + 7, y + 7 + breathe, '#444');
+    px(vctx, x + 8, y + 7 + breathe, '#444');
+
+    // Ojos rojos/dorados menacing (4 ojos hint)
+    px(vctx, x + 5, y + 2 + breathe, '#FFFFFF');
+    px(vctx, x + 5, y + 3 + breathe, '#FF2244');
+    px(vctx, x + 10, y + 2 + breathe, '#FFFFFF');
+    px(vctx, x + 10, y + 3 + breathe, '#FF2244');
+    // Secondary eyes (faint, below main)
+    vctx.fillStyle = `rgba(255,34,68,${0.4 + Math.sin(game.tick*0.07)*0.2})`;
+    vctx.fillRect(x + 5, y + 4 + breathe, 1, 1);
+    vctx.fillRect(x + 10, y + 4 + breathe, 1, 1);
+
+    // Malicious grin
+    rect(vctx, x + 6, y + 6 + breathe, 4, 1, '#CC3344');
+    px(vctx, x + 5, y + 6 + breathe, '#CC3344');
+    px(vctx, x + 10, y + 6 + breathe, '#CC3344');
+
+    // Torso (expuesto con tatuajes/marcas)
+    rect(vctx, x + 3, y + 8, 10, 10, '#3D0C11');
+    // Chest marks/tattoos
+    px(vctx, x + 4, y + 9, '#555');
+    px(vctx, x + 11, y + 9, '#555');
+    px(vctx, x + 5, y + 10, '#555');
+    px(vctx, x + 10, y + 10, '#555');
+    px(vctx, x + 6, y + 11, '#555');
+    px(vctx, x + 9, y + 11, '#555');
+    // Kimono/vest opening showing chest
+    rect(vctx, x + 6, y + 8, 4, 4, PAL.skin);
+    // Body highlights
+    px(vctx, x + 3, y + 10, '#4D1C21');
+    px(vctx, x + 12, y + 10, '#4D1C21');
+
+    // Arms
+    rect(vctx, x + 1, y + 9, 2, 5, '#3D0C11');
+    rect(vctx, x + 13, y + 9, 2, 5, '#3D0C11');
+    // Arm tattoos
+    px(vctx, x + 1, y + 10, '#555');
+    px(vctx, x + 14, y + 10, '#555');
+    // Hands
+    rect(vctx, x + 1, y + 14, 2, 2, PAL.skin);
+    rect(vctx, x + 13, y + 14, 2, 2, PAL.skin);
+
+    // Sash/belt
+    rect(vctx, x + 3, y + 17, 10, 1, '#551122');
+    // Pantalones hakama
+    rect(vctx, x + 3, y + 18, 5, 6, '#2A0A0E');
+    rect(vctx, x + 8, y + 18, 5, 6, '#2A0A0E');
+    // Botas
+    rect(vctx, x + 3, y + 23, 4, 3, '#1A0508');
+    rect(vctx, x + 9, y + 23, 4, 3, '#1A0508');
+
+    // Cursed energy particles (red/dark)
+    for (let i = 0; i < 4; i++) {
+      const pAngle = game.tick * 0.04 + i * 1.6;
+      const ppx = x + 8 + Math.cos(pAngle) * (9 + i*2);
+      const ppy = y + 14 + Math.sin(pAngle) * 8;
+      vctx.fillStyle = `rgba(255,50,60,${0.3 + Math.sin(game.tick*0.06+i)*0.2})`;
+      vctx.fillRect(ppx, ppy, 1, 1);
+    }
   }
 }
 
@@ -3022,6 +3773,8 @@ function drawMap() {
       case 'marina': sprite = sprMarina; break;
       case 'oldman': sprite = sprOldMan; break;
       case 'pau': sprite = sprPau; break;
+      case 'gojo': sprite = sprGojo; break;
+      case 'sukuna': sprite = sprSukuna; break;
       default: sprite = sprVillager1;
     }
     const frame = npc.dir || 0;
@@ -3048,7 +3801,7 @@ function drawMap() {
     partyIcons.forEach((p, i) => {
       const fx = px - 8 - i * 4;
       const fy = py + 4;
-      vctx.fillStyle = p.id === 'marina' ? PAL.purple : PAL.orange;
+      vctx.fillStyle = p.id === 'marina' ? PAL.purple : p.id === 'gojo' ? '#4488FF' : p.id === 'sukuna' ? '#FF3355' : PAL.orange;
       vctx.fillRect(fx, fy, 4, 4);
     });
   }
@@ -3063,12 +3816,13 @@ function drawHUD() {
   drawText(vctx, map.name, 5, ROWS * TILE + 4, PAL.cyan, 8);
 
   // Party HP/MP
+  const hudSpacing = game.party.length > 3 ? Math.floor((VIRT_W - 10) / game.party.length) : 85;
   game.party.forEach((p, i) => {
-    const sx = 5 + i * 85;
+    const sx = 5 + i * hudSpacing;
     const sy = ROWS * TILE + 16;
-    drawText(vctx, p.name, sx, sy, PAL.white, 7);
-    drawText(vctx, 'HP:' + p.hp + '/' + p.maxHp, sx, sy + 10, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.green, 7);
-    drawText(vctx, 'MP:' + p.mp + '/' + p.maxMp, sx, sy + 20, PAL.cyan, 7);
+    drawText(vctx, p.name.substring(0, 4), sx, sy, PAL.white, 7);
+    drawText(vctx, p.hp + '/' + p.maxHp, sx, sy + 10, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.green, 6);
+    if (game.party.length <= 3) drawText(vctx, 'MP:' + p.mp + '/' + p.maxMp, sx, sy + 20, PAL.cyan, 7);
   });
 }
 
@@ -3078,17 +3832,19 @@ function drawMenu() {
   drawText(vctx, '--- MENÚ ---', 80, 16, PAL.gold, 10);
 
   // Party info
+  const cardH = game.party.length > 3 ? 38 : 50;
   game.party.forEach((p, i) => {
-    const sy = 35 + i * 55;
-    drawBox(vctx, 25, sy, VIRT_W - 50, 50);
+    const sy = 35 + i * (cardH + 5);
+    drawBox(vctx, 25, sy, VIRT_W - 50, cardH);
     drawText(vctx, p.name + ' - ' + p.class + ' Nv.' + p.level, 30, sy + 4, PAL.yellow, 8);
     drawText(vctx, 'HP: ' + p.hp + '/' + p.maxHp + '   MP: ' + p.mp + '/' + p.maxMp, 30, sy + 16, PAL.white, 7);
-    drawText(vctx, 'ATK:' + p.atk + ' DEF:' + p.def + ' SPD:' + p.spd + ' MAG:' + p.mag, 30, sy + 26, PAL.lightGray, 7);
-    drawText(vctx, 'EXP: ' + p.exp + '/' + p.nextExp, 30, sy + 36, PAL.cyan, 7);
+    if (cardH > 40) {
+      drawText(vctx, 'ATK:' + p.atk + ' DEF:' + p.def + ' SPD:' + p.spd + ' MAG:' + p.mag, 30, sy + 26, PAL.lightGray, 7);
+    }
   });
 
   // Items & Gil
-  const iy = 35 + game.party.length * 55 + 5;
+  const iy = 35 + game.party.length * (cardH + 5) + 5;
   drawText(vctx, 'Gil: ' + game.gil, 30, iy, PAL.gold, 8);
   drawText(vctx, 'Objetos:', 30, iy + 14, PAL.white, 8);
   game.items.filter(i => i.count > 0).forEach((item, idx) => {
