@@ -1527,6 +1527,7 @@ maps.forest = {
   })(),
   npcs: [
     { id: 'pau_npc', sprite: 'pau', x: 15, y: 14, dir: 0, name: 'Pau' },
+    { id: 'hermit', sprite: 'oldman', x: 25, y: 20, dir: 3, name: 'Ermitaño' },
   ],
   triggers: [
     { x: 1, y: 0, type: 'mapChange', target: 'village', tx: 10, ty: 18 },
@@ -1594,7 +1595,9 @@ maps.cave = {
     m[8][17] = T.CHEST;
     return m;
   })(),
-  npcs: [],
+  npcs: [
+    { id: 'cave_spirit', sprite: 'villager1', x: 10, y: 14, dir: 0, name: 'Espíritu' },
+  ],
   triggers: [
     { x: 7, y: 0, type: 'mapChange', target: 'forest', tx: 14, ty: 27 },
     { x: 8, y: 0, type: 'mapChange', target: 'forest', tx: 15, ty: 27 },
@@ -1799,11 +1802,23 @@ function getDialogue(npcId) {
   const f = game.flags;
   switch (npcId) {
     case 'alcalde':
-      if (f.questComplete) return [
+      if (f.bossDefeated) return [
         { speaker: 'Alcalde Bernat', text: '¡Habéis salvado Vila Nova! Sois los héroes de Cataluña.' },
+        { speaker: 'Alcalde Bernat', text: 'Todo el pueblo os debe la vida. Organizaremos un gran festín en vuestro honor.' },
+        { speaker: 'Alcalde Bernat', text: 'Pero... el Anciano Oriol me ha dicho algo inquietante. Habla con él cuando puedas.' },
+      ];
+      if (f.pauJoined) return [
+        { speaker: 'Alcalde Bernat', text: 'He oído que encontrasteis a un monje en el bosque. ¡Bien hecho!' },
+        { speaker: 'Alcalde Bernat', text: 'La cueva está al sur del bosque. Dicen que se oyen rugidos desde sus profundidades...' },
+        { speaker: 'Alcalde Bernat', text: 'Tened mucho cuidado ahí dentro. Y llevad pociones.' },
+      ];
+      if (f.marinaJoined) return [
+        { speaker: 'Alcalde Bernat', text: 'Marina es una gran maga. Con ella a tu lado, tendréis más opciones.' },
+        { speaker: 'Alcalde Bernat', text: 'Buscad aliados en el bosque. He oído que hay un monje de Montserrat por la zona.' },
       ];
       if (f.questStarted) return [
         { speaker: 'Alcalde Bernat', text: 'Las sombras vienen de la cueva al sur del bosque. ¡Tened cuidado!' },
+        { speaker: 'Alcalde Bernat', text: 'Habla con Marina antes de irte. La encontrarás al sur del pueblo.' },
       ];
       return [
         { speaker: 'Alcalde Bernat', text: 'Javier... Algo terrible está pasando. Sombras oscuras invaden nuestras tierras.' },
@@ -1815,15 +1830,34 @@ function getDialogue(npcId) {
         { speaker: null, text: '>> Misión recibida: Investigar la fuente de las sombras', action: () => { game.flags.questStarted = true; } },
       ];
     case 'villager1':
+      if (f.bossDefeated) return [
+        { speaker: 'Campesino', text: '¡Javier! ¡El héroe de Vila Nova! ¡Déjame estrecharte la mano!' },
+        { speaker: 'Campesino', text: 'Los campos están volviendo a la normalidad. ¡Ya se ven brotes verdes otra vez!' },
+      ];
+      if (f.pauJoined) return [
+        { speaker: 'Campesino', text: 'Veo que habéis encontrado refuerzos. ¡Que la suerte os acompañe en la cueva!' },
+        { speaker: 'Campesino', text: 'Mi abuelo decía que antaño, aquella cueva era un templo sagrado...' },
+      ];
       if (f.questStarted) return [
         { speaker: 'Campesino', text: '¡El bosque está lleno de monstruos! No vayas solo.' },
+        { speaker: 'Campesino', text: 'Las cosechas se están marchitando. Algo envenena la tierra desde el sur.' },
       ];
       return [
         { speaker: 'Campesino', text: 'Buenos días, Javier. Hoy hace buen tiempo para trabajar los campos.' },
+        { speaker: 'Campesino', text: 'La vida en Vila Nova es tranquila. Espero que siga siendo así...' },
       ];
     case 'villager2':
+      if (f.bossDefeated) return [
+        { speaker: 'Pescador', text: '¡Los peces han vuelto al lago! ¡Y más grandes que nunca!' },
+        { speaker: 'Pescador', text: 'Todo gracias a vosotros. Os guardo la mejor trucha para la cena.' },
+      ];
+      if (f.pauJoined) return [
+        { speaker: 'Pescador', text: 'He visto luces extrañas en dirección a la cueva esta noche.' },
+        { speaker: 'Pescador', text: 'Y un rugido terrible que hizo temblar el agua del lago. Id con cuidado.' },
+      ];
       if (f.questStarted) return [
         { speaker: 'Pescador', text: 'Los peces del lago se comportan de forma extraña... como si huyeran de algo.' },
+        { speaker: 'Pescador', text: 'Ayer vi una sombra enorme moverse bajo el agua. No dormí en toda la noche.' },
       ];
       return [
         { speaker: 'Pescador', text: 'El lago está tranquilo hoy. Espero pescar una buena trucha.' },
@@ -1842,16 +1876,87 @@ function getDialogue(npcId) {
       return [
         { speaker: 'Marina', text: 'Soy Marina, maga. Llevo años estudiando las artes arcanas aquí en Vila Nova.' },
         { speaker: 'Marina', text: 'Últimamente siento una energía oscura creciendo en el sur...' },
+        { speaker: 'Marina', text: 'Si algún día necesitas mis habilidades, solo tienes que pedirlo.' },
       ];
     case 'oldman':
+      if (f.bossDefeated) return [
+        { speaker: 'Anciano Oriol', text: 'Lo habéis logrado... Pero debo advertiros de algo.' },
+        { speaker: 'Anciano Oriol', text: 'El Señor de las Sombras era solo un sirviente. El verdadero mal sigue dormido.' },
+        { speaker: 'Anciano Oriol', text: 'Según las crónicas antiguas, existe un poder más oscuro en las profundidades de Montserrat.' },
+        { speaker: 'Anciano Oriol', text: 'Debéis seguir entrenando. Cataluña os necesitará de nuevo...' },
+        { speaker: null, text: '>> El Anciano Oriol te mira con preocupación. ¿Qué más habrá escondido en estas tierras?' },
+      ];
+      if (f.pauJoined) return [
+        { speaker: 'Anciano Oriol', text: 'Un monje de Montserrat, ¿eh? Eso es alentador.' },
+        { speaker: 'Anciano Oriol', text: 'Los monjes conocen artes de purificación que pueden debilitar a las sombras.' },
+        { speaker: 'Anciano Oriol', text: 'En la cueva, buscad los cristales sagrados. Su luz os protegerá contra la oscuridad.' },
+        { speaker: 'Anciano Oriol', text: 'Y recordad: el Señor de las Sombras se alimenta de la desesperación. No perdáis la esperanza.' },
+      ];
+      if (f.marinaJoined) return [
+        { speaker: 'Anciano Oriol', text: 'Marina... Su familia lleva generaciones protegiendo estas tierras con magia.' },
+        { speaker: 'Anciano Oriol', text: 'No es coincidencia que ella sea tan poderosa. Es descendiente de los Guardianes del Sello.' },
+        { speaker: 'Anciano Oriol', text: 'Buscad a Pau en el bosque. Fue a investigar por su cuenta hace días y no ha vuelto.' },
+      ];
       if (f.questStarted) return [
         { speaker: 'Anciano Oriol', text: 'Cuenta la leyenda que bajo la montaña duerme un antiguo mal...' },
         { speaker: 'Anciano Oriol', text: 'El "Señor de las Sombras" fue sellado hace siglos, pero el sello se debilita.' },
         { speaker: 'Anciano Oriol', text: 'Solo guerreros de corazón puro pueden derrotarlo. Ten fe, Javier.' },
+        { speaker: 'Anciano Oriol', text: 'Escucha bien: antes de ir al bosque, busca aliados. No vayas solo.' },
       ];
       return [
         { speaker: 'Anciano Oriol', text: 'Ah, Javier. ¿Has venido a escuchar las historias de un viejo?' },
         { speaker: 'Anciano Oriol', text: 'Hace muchos años, estas tierras eran peligrosas... Quién sabe si volverán a serlo.' },
+        { speaker: 'Anciano Oriol', text: 'Mi padre me contaba historias de guerreros que lucharon contra las sombras.' },
+        { speaker: 'Anciano Oriol', text: 'Creo que era más que cuentos... Pero bueno, los tiempos cambian.' },
+      ];
+    case 'hermit':
+      if (f.bossDefeated) return [
+        { speaker: 'Ermitaño', text: 'El equilibrio ha sido restaurado... por ahora.' },
+        { speaker: 'Ermitaño', text: 'Pero sentí algo cuando el Señor de las Sombras cayó. Como un eco más profundo.' },
+        { speaker: 'Ermitaño', text: 'Existen fuerzas en este mundo que van más allá de lo que conocemos.' },
+        { speaker: 'Ermitaño', text: 'Poderes antiguos que fueron sellados junto con las sombras. Si alguien los despertara...' },
+      ];
+      if (f.hermitTalked) return [
+        { speaker: 'Ermitaño', text: 'La cueva está al sur. No olvidéis lo que os he dicho sobre los cristales.' },
+        { speaker: 'Ermitaño', text: 'Y cuidado con las corrientes de aire frío. Ahí las sombras son más fuertes.' },
+      ];
+      return [
+        { speaker: 'Ermitaño', text: '...¿Visitantes? Hace años que nadie se adentra tanto en el bosque.' },
+        { speaker: 'Javier', text: '¿Quién eres? ¿Vives aquí solo?' },
+        { speaker: 'Ermitaño', text: 'Soy un ermitaño. Llevo décadas vigilando el bosque, observando las señales.' },
+        { speaker: 'Ermitaño', text: 'Y las señales son claras: el sello se ha roto. Las sombras que veis son solo el principio.' },
+        { speaker: 'Ermitaño', text: 'En lo más profundo de la cueva hay dos cristales sagrados. Acercaos a ellos.' },
+        { speaker: 'Ermitaño', text: 'Su luz debilitará al Señor de las Sombras. Sin ella, será casi invencible.' },
+        { speaker: 'Ermitaño', text: 'Una cosa más... He sentido energías extrañas últimamente. Poderes que no son de este mundo.' },
+        { speaker: 'Ermitaño', text: 'Si encontráis aliados con poderes sobrenaturales... aceptad su ayuda. La vais a necesitar.' },
+        { speaker: null, text: '>> El ermitaño te ha dado consejo sobre los cristales de la cueva.', action: () => { game.flags.hermitTalked = true; } },
+      ];
+    case 'cave_spirit':
+      if (f.bossDefeated) return [
+        { speaker: 'Espíritu Guardián', text: 'Lo habéis conseguido. El Señor de las Sombras ha caído.' },
+        { speaker: 'Espíritu Guardián', text: 'Pero mi deber como guardián no ha terminado. Algo se agita en niveles más profundos...' },
+        { speaker: 'Espíritu Guardián', text: 'Quizás algún día volváis a necesitar mi guía. Estaré aquí.' },
+      ];
+      if (f.spiritBlessing) return [
+        { speaker: 'Espíritu Guardián', text: 'Mi bendición os protege. Id al fondo de la cueva y acabemos con esto.' },
+        { speaker: 'Espíritu Guardián', text: 'Recordad: no dejéis que el miedo os domine. Eso es lo que él quiere.' },
+      ];
+      return [
+        { speaker: '???', text: '...Deteneos, viajeros.' },
+        { speaker: 'Javier', text: '¡¿Quién anda ahí?!' },
+        { speaker: 'Espíritu Guardián', text: 'No temáis. Soy el espíritu de esta cueva. Fui uno de los que selló al Señor de las Sombras.' },
+        { speaker: 'Espíritu Guardián', text: 'Hace siglos, cinco guerreros dieron su vida para imprisionar esa oscuridad.' },
+        { speaker: 'Espíritu Guardián', text: 'Pero el sello era temporal. Cada mil años, la oscuridad intenta renacer.' },
+        { speaker: 'Espíritu Guardián', text: 'Y este es el año. Vosotros sois los elegidos para enfrentarla.' },
+        { speaker: 'Javier', text: '¿Elegidos? No sé si estamos preparados...' },
+        { speaker: 'Espíritu Guardián', text: 'Nadie lo está nunca. Pero tenéis algo que él no tiene: vínculos entre vosotros.' },
+        { speaker: 'Espíritu Guardián', text: 'Aceptad mi bendición. Os dará fuerzas para la batalla que os espera.' },
+        { speaker: null, text: '>> ¡El Espíritu Guardián os bendice! ATK +3, DEF +3 para todo el grupo.', action: () => {
+          game.flags.spiritBlessing = true;
+          game.party.forEach(p => { p.atk += 3; p.def += 3; });
+        }},
+        { speaker: 'Espíritu Guardián', text: 'Una última advertencia: el Señor de las Sombras usa el miedo como arma.' },
+        { speaker: 'Espíritu Guardián', text: 'No escuchéis sus mentiras. Luchad juntos y venceréis.' },
       ];
     case 'pau_npc':
       if (f.pauJoined) return [
@@ -1861,12 +1966,17 @@ function getDialogue(npcId) {
         { speaker: 'Pau', text: '¡Ayuda...! Los monstruos me han rodeado...' },
         { speaker: 'Javier', text: '¡Estás herido! Toma, bebe esto.' },
         { speaker: 'Pau', text: 'Gracias... Soy Pau, monje del monasterio de Montserrat.' },
-        { speaker: 'Pau', text: 'Vine a investigar las sombras, pero me emboscaron. ¿Vosotros también buscáis la fuente del mal?' },
-        { speaker: 'Javier', text: 'Sí. Cuantos más seamos, mejor.' },
-        { speaker: 'Pau', text: '¡Entonces iré con vosotros! Conozco artes de curación y técnicas de combate.' },
+        { speaker: 'Pau', text: 'El abad me envió a investigar las sombras. Los monjes notaron una perturbación espiritual.' },
+        { speaker: 'Pau', text: '¿Vosotros también buscáis la fuente del mal?' },
+        { speaker: 'Javier', text: 'Sí. El alcalde de Vila Nova nos pidió que investigáramos.' },
+        { speaker: 'Pau', text: 'Entonces nuestros caminos se cruzan por algo. El destino no cree en coincidencias.' },
+        { speaker: 'Pau', text: '¡Iré con vosotros! Conozco artes de curación y técnicas de combate cuerpo a cuerpo.' },
         { speaker: null, text: '>> ¡Pau se une al grupo!', action: () => { game.flags.pauJoined = true; game.flags.pau_npc_gone = true; addPau(); } },
       ];
     case 'sign_village':
+      if (f.bossDefeated) return [
+        { speaker: null, text: '"Vila Nova - Los Héroes de Cataluña nacieron aquí. Fundada en 1024."' },
+      ];
       return [
         { speaker: null, text: '"Vila Nova - Fundada en el año 1024. Hogar de gentes trabajadoras y valientes."' },
       ];
@@ -1881,13 +1991,28 @@ function getDialogue(npcId) {
           game.gil += 200;
         }},
       ];
+    case 'crystal_cave':
+      if (f.crystalTouched) return [
+        { speaker: null, text: 'El cristal emite un suave resplandor cálido. Sientes paz.' },
+      ];
+      return [
+        { speaker: null, text: 'Tocas el cristal sagrado. Una energía antigua recorre tu cuerpo...' },
+        { speaker: null, text: '¡El cristal brilla con fuerza! +30 HP restaurados a todo el grupo.', action: () => {
+          game.flags.crystalTouched = true;
+          game.party.forEach(p => { p.hp = Math.min(p.maxHp, p.hp + 30); });
+        }},
+      ];
     case 'boss_intro':
       return [
-        { speaker: '???', text: 'Ja, ja, ja... Mortales insignificantes. ¿Osáis entrar en mi dominio?' },
-        { speaker: 'Señor de las Sombras', text: '¡Soy el Señor de las Sombras! ¡Fui sellado hace siglos, pero ahora soy LIBRE!' },
-        { speaker: 'Javier', text: 'Tú eres el causante de todo. Vamos a detenerte.' },
-        { speaker: 'Señor de las Sombras', text: '¿Detenerme? ¡JA! ¡PREPARAOS PARA LA OSCURIDAD ETERNA!' },
-        { speaker: null, text: '>> ¡COMBATE CONTRA EL JEFE!', action: () => { startBattle(['boss'], true); } },
+        { speaker: '???', text: '...' },
+        { speaker: '???', text: 'Ja, ja, ja... Puedo oler vuestro miedo desde aquí.' },
+        { speaker: 'Señor de las Sombras', text: '¡Soy el Señor de las Sombras! ¡Fui sellado hace mil años, pero el sello se ha roto!' },
+        { speaker: 'Señor de las Sombras', text: '¿Cinco guerreros me sellaron? ¡Bah! Ahora solo veo a unos niños temblando.' },
+        { speaker: 'Javier', text: 'No temblamos. Hemos llegado hasta aquí y no vamos a retroceder.' },
+        { speaker: 'Señor de las Sombras', text: '¿Determinación? Qué aburrido. Dejad que os muestre lo que es la verdadera oscuridad.' },
+        { speaker: 'Señor de las Sombras', text: 'Cuando acabe con vosotros, Vila Nova será la primera en caer. Luego toda Cataluña.' },
+        { speaker: 'Javier', text: '¡Eso no pasará! ¡Por Vila Nova, por Cataluña... LUCHAREMOS!' },
+        { speaker: null, text: '>> ¡COMBATE CONTRA EL JEFE FINAL!', action: () => { startBattle(['boss'], true); } },
       ];
     default:
       return [{ speaker: null, text: '...' }];
@@ -1999,6 +2124,8 @@ function interact() {
     startDialogue(getDialogue('sign_village'));
   } else if (tile === T.CHEST) {
     startDialogue(getDialogue('chest_cave'));
+  } else if (tile === T.CRYSTAL) {
+    startDialogue(getDialogue('crystal_cave'));
   }
 }
 
@@ -3336,65 +3463,71 @@ function drawBattle() {
   drawFloatingTexts();
 
   // UI de batalla
-  const uiH = b.party.length > 3 ? 75 : 60;
+  const uiH = 70;
   drawBox(vctx, 0, VIRT_H - uiH, VIRT_W, uiH);
 
-  // Mostrar stats del party
-  const statRowH = b.party.length > 3 ? 14 : 18;
+  // Mostrar stats del party (right side)
+  const maxParty = Math.min(b.party.length, 3);
+  const statRowH = maxParty > 2 ? 16 : 20;
   b.party.forEach((p, i) => {
-    const sx = 140;
-    const sy = VIRT_H - uiH + 4 + i * statRowH;
+    if (i >= 3) return;
+    const sx = 130;
+    const sy = VIRT_H - uiH + 5 + i * statRowH;
     const nameColor = p.alive ? (p === b.activeChar ? PAL.yellow : PAL.white) : PAL.darkGray;
     drawText(vctx, p.name, sx, sy, nameColor, 7);
-    drawText(vctx, 'HP:' + p.hp + '/' + p.maxHp, sx + 48, sy, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.white, 7);
-    if (statRowH >= 18) drawText(vctx, 'MP:' + p.mp, sx + 48, sy + 8, PAL.cyan, 7);
+    drawText(vctx, 'HP:' + p.hp + '/' + p.maxHp, sx + 46, sy, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.white, 7);
+    drawText(vctx, 'MP:' + p.mp, sx + 46, sy + 8, PAL.cyan, 6);
   });
 
   // Menú de acción
   if (b.state === 'selectAction') {
-    drawBox(vctx, 4, VIRT_H - 58, 60, 54);
+    const menuH = b.actionMenu.length * 12 + 8;
+    drawBox(vctx, 4, VIRT_H - uiH + 2, 62, menuH);
     b.actionMenu.forEach((a, i) => {
       const color = i === b.cursor ? PAL.yellow : PAL.white;
-      if (i === b.cursor) drawText(vctx, '▶', 8, VIRT_H - 54 + i * 12, PAL.yellow, 8);
-      drawText(vctx, a, 18, VIRT_H - 54 + i * 12, color, 8);
+      if (i === b.cursor) drawText(vctx, '▶', 8, VIRT_H - uiH + 6 + i * 12, PAL.yellow, 8);
+      drawText(vctx, a, 18, VIRT_H - uiH + 6 + i * 12, color, 8);
     });
   }
 
   // Menú de magia
   if (b.state === 'selectSkill' && b.activeChar) {
     const skills = b.activeChar.skills;
-    drawBox(vctx, 4, VIRT_H - 58, 90, 54);
+    const menuH = skills.length * 11 + 8;
+    drawBox(vctx, 4, VIRT_H - uiH + 2, 95, menuH);
     skills.forEach((s, i) => {
       const color = i === b.skillCursor ? PAL.yellow : (b.activeChar.mp >= s.cost ? PAL.white : PAL.darkGray);
-      if (i === b.skillCursor) drawText(vctx, '▶', 8, VIRT_H - 54 + i * 12, PAL.yellow, 8);
-      drawText(vctx, s.name + ' ' + s.cost + 'MP', 18, VIRT_H - 54 + i * 12, color, 7);
+      if (i === b.skillCursor) drawText(vctx, '▶', 8, VIRT_H - uiH + 6 + i * 11, PAL.yellow, 7);
+      drawText(vctx, s.name + ' ' + s.cost, 18, VIRT_H - uiH + 6 + i * 11, color, 6);
     });
   }
 
   // Menú de objetos
   if (b.state === 'selectItem') {
     const items = game.items.filter(i => i.count > 0);
-    drawBox(vctx, 4, VIRT_H - 58, 95, 54);
+    const menuH = items.length * 12 + 8;
+    drawBox(vctx, 4, VIRT_H - uiH + 2, 95, menuH);
     items.forEach((item, i) => {
       const color = i === b.itemCursor ? PAL.yellow : PAL.white;
-      if (i === b.itemCursor) drawText(vctx, '▶', 8, VIRT_H - 54 + i * 12, PAL.yellow, 8);
-      drawText(vctx, item.name + ' x' + item.count, 18, VIRT_H - 54 + i * 12, color, 7);
+      if (i === b.itemCursor) drawText(vctx, '▶', 8, VIRT_H - uiH + 6 + i * 12, PAL.yellow, 8);
+      drawText(vctx, item.name + ' x' + item.count, 18, VIRT_H - uiH + 6 + i * 12, color, 7);
     });
   }
 
   // Selección aliado
   if (b.state === 'selectAllyTarget') {
     b.party.forEach((p, i) => {
+      if (i >= 3) return;
       if (i === b.targetCursor) {
-        drawText(vctx, '▶', 132, VIRT_H - 56 + i * 18, PAL.yellow, 8);
+        drawText(vctx, '▶', 122, VIRT_H - uiH + 5 + i * statRowH, PAL.yellow, 8);
       }
     });
   }
 
-  // Mensaje
+  // Mensaje (above battle UI box)
   if (b.message && b.messageTimer > 0) {
-    drawBox(vctx, 4, VIRT_H - 74, VIRT_W - 8, 14);
-    drawText(vctx, b.message, 8, VIRT_H - 72, PAL.white, 7);
+    drawBox(vctx, 4, VIRT_H - uiH - 16, VIRT_W - 8, 15);
+    drawText(vctx, b.message, 8, VIRT_H - uiH - 14, PAL.white, 7);
   }
 
   // Victoria
@@ -4126,10 +4259,13 @@ function drawMap() {
 // --- MISIÓN ACTUAL ---
 function getCurrentMission() {
   const f = game.flags;
-  if (f.bossDefeated) return 'Mision completada!';
+  if (f.bossDefeated) return 'Habla con los aldeanos';
   if (f.bossTriggered) return 'Derrota al Senor de Sombras';
+  if (f.spiritBlessing) return 'Adentrate en la cueva';
+  if (f.pauJoined && game.currentMap === 'cave') return 'Explora la cueva';
   if (f.pauJoined) return 'Entra en la Cueva';
-  if (f.marinaJoined) return 'Busca aliados en el Bosque';
+  if (f.hermitTalked) return 'Busca aliados en el Bosque';
+  if (f.marinaJoined) return 'Explora el Bosque';
   if (f.questStarted) return 'Habla con Marina';
   return 'Habla con el Alcalde';
 }
@@ -4140,21 +4276,20 @@ function drawHUD() {
   drawBox(vctx, 0, ROWS * TILE, VIRT_W, 48);
 
   const map = maps[game.currentMap];
-  drawText(vctx, map.name, 5, ROWS * TILE + 4, PAL.cyan, 8);
+  drawText(vctx, map.name, 5, ROWS * TILE + 4, PAL.cyan, 7);
 
-  // Party HP/MP
-  const hudSpacing = game.party.length > 3 ? Math.floor((VIRT_W - 10) / game.party.length) : 85;
-  game.party.forEach((p, i) => {
-    const sx = 5 + i * hudSpacing;
-    const sy = ROWS * TILE + 16;
-    drawText(vctx, p.name.substring(0, 4), sx, sy, PAL.white, 7);
-    drawText(vctx, p.hp + '/' + p.maxHp, sx, sy + 10, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.green, 6);
-    if (game.party.length <= 3) drawText(vctx, 'MP:' + p.mp + '/' + p.maxMp, sx, sy + 20, PAL.cyan, 7);
+  // Party HP/MP (compact)
+  game.party.slice(0, 3).forEach((p, i) => {
+    const sx = 5 + i * 85;
+    const sy = ROWS * TILE + 14;
+    drawText(vctx, p.name.substring(0, 5), sx, sy, PAL.white, 6);
+    drawText(vctx, p.hp + '/' + p.maxHp, sx + 34, sy, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.green, 6);
+    drawText(vctx, 'MP:' + p.mp, sx, sy + 9, PAL.cyan, 6);
   });
 
-  // Misión actual
+  // Misión actual (bottom of HUD)
   const mission = getCurrentMission();
-  drawText(vctx, '> ' + mission, 5, ROWS * TILE + 40, PAL.gold, 6);
+  drawText(vctx, '> ' + mission, 5, ROWS * TILE + 38, PAL.gold, 6);
 }
 
 // --- MENÚ ---
@@ -4381,6 +4516,8 @@ function drawVictoryScreen() {
     'El Señor de las Sombras ha sido derrotado.',
     '',
     'La paz vuelve a Cataluña.',
+    'Los campos florecen de nuevo,',
+    'y las sombras se disipan al fin.',
     '',
     'Los héroes regresan a Vila Nova',
     'donde son recibidos como leyendas.',
@@ -4396,19 +4533,39 @@ function drawVictoryScreen() {
     'PAU',
     'Monje de Montserrat',
     '',
+  ];
+  // Añadir personajes secretos si estaban en el grupo
+  const allChars = game.party.concat(game.reserve || []);
+  if (allChars.some(p => p.name === 'Gojo')) {
+    lines.push('GOJO SATORU', 'El Hechicero Más Fuerte', '');
+  }
+  if (allChars.some(p => p.name === 'Sukuna')) {
+    lines.push('RYOMEN SUKUNA', 'El Rey de las Maldiciones', '');
+  }
+  lines.push(
+    '- - - - - - - - -',
+    '',
+    'ERMITAÑO DEL BOSQUE',
+    'ESPÍRITU GUARDIÁN',
+    'ANCIANO ORIOL',
+    'ALCALDE BERNAT',
+    '',
     '- - - - - - - - -',
     '',
     'Gracias por jugar a la Demo de',
     'FINAL FANTASY CATALONIA',
     '',
     'Continuará...',
-  ];
+  );
 
+  const goldNames = ['JAVIER','MARINA','PAU','GOJO','SUKUNA','FINAL'];
   lines.forEach((line, i) => {
     const ly = 50 + i * 12 + scrollY;
     if (ly > 0 && ly < VIRT_H) {
-      const color = line.includes('JAVIER') || line.includes('MARINA') || line.includes('PAU') || line.includes('FINAL')
-        ? PAL.gold : line.includes('- -') ? PAL.cyan : PAL.white;
+      const color = goldNames.some(n => line.includes(n))
+        ? PAL.gold : line.includes('- -') ? PAL.cyan
+        : line.includes('ERMITAÑO') || line.includes('ESPÍRITU') || line.includes('ANCIANO') || line.includes('ALCALDE')
+        ? PAL.lightGray : PAL.white;
       const xOff = Math.max(0, (VIRT_W - line.length * 5) / 2);
       drawText(vctx, line, xOff, ly, color, 8);
     }
