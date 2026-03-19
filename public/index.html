@@ -1425,7 +1425,7 @@ const tileMap = {
   [T.CRYSTAL]: 'crystal'
 };
 
-const solidTiles = new Set([T.VOID, T.WATER, T.STONE_WALL, T.TREE, T.HOUSE_WALL, T.ROOF, T.CAVE_WALL, T.WINDOW]);
+const solidTiles = new Set([T.VOID, T.WATER, T.STONE_WALL, T.TREE, T.HOUSE_WALL, T.ROOF, T.CAVE_WALL, T.WINDOW, T.DOOR, T.CHEST, T.SIGN, T.CRYSTAL]);
 
 // --- MAPAS ---
 // V = Vila Nova (pueblo), F = Bosque, C = Cueva
@@ -1462,7 +1462,7 @@ maps.village = {
     { id: 'alcalde', sprite: 'alcalde', x: 11, y: 5, dir: 0, name: 'Alcalde Bernat' },
     { id: 'villager1', sprite: 'villager1', x: 7, y: 9, dir: 0, name: 'Campesino' },
     { id: 'villager2', sprite: 'villager2', x: 15, y: 10, dir: 0, name: 'Pescador' },
-    { id: 'marina_npc', sprite: 'marina', x: 4, y: 12, dir: 0, name: 'Marina' },
+    { id: 'marina_npc', sprite: 'marina', x: 4, y: 14, dir: 0, name: 'Marina' },
     { id: 'oldman', sprite: 'oldman', x: 18, y: 5, dir: 0, name: 'Anciano Oriol' },
   ],
   triggers: [
@@ -1564,6 +1564,8 @@ maps.cave = {
     }
     // Entrada
     m[1][7] = T.CAVE_FLOOR; m[1][8] = T.CAVE_FLOOR;
+    // Salida (escaleras visibles para poder salir de la cueva)
+    m[0][7] = T.STAIRS_DOWN; m[0][8] = T.STAIRS_DOWN;
     corridor(7, 1, 7, 6);
     corridor(7, 6, 3, 6);
     corridor(3, 6, 3, 10);
@@ -3814,6 +3816,17 @@ function drawMap() {
   }
 }
 
+// --- MISIÓN ACTUAL ---
+function getCurrentMission() {
+  const f = game.flags;
+  if (f.bossDefeated) return 'Mision completada!';
+  if (f.bossTriggered) return 'Derrota al Senor de Sombras';
+  if (f.pauJoined) return 'Entra en la Cueva';
+  if (f.marinaJoined) return 'Busca aliados en el Bosque';
+  if (f.questStarted) return 'Habla con Marina';
+  return 'Habla con el Alcalde';
+}
+
 // --- HUD ---
 function drawHUD() {
   // Barra inferior del mapa
@@ -3831,6 +3844,10 @@ function drawHUD() {
     drawText(vctx, p.hp + '/' + p.maxHp, sx, sy + 10, p.hp < p.maxHp * 0.3 ? PAL.red : PAL.green, 6);
     if (game.party.length <= 3) drawText(vctx, 'MP:' + p.mp + '/' + p.maxMp, sx, sy + 20, PAL.cyan, 7);
   });
+
+  // Misión actual
+  const mission = getCurrentMission();
+  drawText(vctx, '> ' + mission, 5, ROWS * TILE + 40, PAL.gold, 6);
 }
 
 // --- MENÚ ---
@@ -4115,6 +4132,13 @@ function update() {
 
   if (game.moveDelay > 0) game.moveDelay--;
 
+  // Settings overlay input (processed FIRST to avoid key conflicts with gift codes)
+  if (settingsState.open) {
+    updateSettings();
+    clearJustPressed();
+    return;
+  }
+
   switch (game.state) {
     case 'title':
       if (!game.musicStarted && audioCtx) { game.musicStarted = true; playMusic('menu'); }
@@ -4208,8 +4232,6 @@ function update() {
       break;
   }
 
-  // Settings overlay input (processed AFTER state switch to intercept)
-  if (settingsState.open) updateSettings();
   clearJustPressed();
 }
 
