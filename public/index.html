@@ -841,8 +841,34 @@ function sfxForSkill(skillName) {
   if (skillName.includes('Ácido') || skillName.includes('Chillido')) return sfxDarkAttack();
   sfxHeavyHit(); // fallback
 }
-function sfxSelect() { playTone(600, 0.06); setTimeout(() => playTone(800, 0.06), 30); }
-function sfxCursor() { playTone(440, 0.04, 'sine'); }
+function sfxSelect() {
+  if (!audioCtx) return; const v = getSfxVol(); const t = audioCtx.currentTime;
+  // KH-style confirm chime: bright ascending two-note sparkle
+  [{ f: 1100, delay: 0 }, { f: 1650, delay: 0.06 }].forEach(n => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = n.f;
+    const start = t + n.delay;
+    g.gain.setValueAtTime(v * 0.13, start);
+    g.gain.exponentialRampToValueAtTime(0.001, start + 0.12);
+    o.connect(g); g.connect(audioCtx.destination); o.start(start); o.stop(start + 0.13);
+  });
+  // subtle high shimmer overtone
+  const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+  o2.type = 'triangle'; o2.frequency.value = 2200;
+  g2.gain.setValueAtTime(v * 0.04, t + 0.06);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+  o2.connect(g2); g2.connect(audioCtx.destination); o2.start(t + 0.06); o2.stop(t + 0.16);
+}
+function sfxCursor() {
+  if (!audioCtx) return; const v = getSfxVol(); const t = audioCtx.currentTime;
+  // KH-style cursor tick: short crisp metallic pip
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(1800, t);
+  o.frequency.exponentialRampToValueAtTime(1200, t + 0.025);
+  g.gain.setValueAtTime(v * 0.10, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+  o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.04);
+}
 function sfxHit() { sfxSwordSlash(); }
 function sfxMagic() { sfxFire(); } // fallback genérico
 function sfxVictory() {
@@ -1407,6 +1433,111 @@ function generateTiles() {
     // Glow on floor
     px(ctx, 5, 13, '#6633AA'); px(ctx, 10, 13, '#6633AA');
   });
+
+  // === MONTAÑA ROCOSA ===
+  tileSprites.mountain = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#8B7355');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 3) px(ctx, x, y, '#7A6248');
+    rect(ctx, 4, 0, 8, 12, '#9B836A');
+    rect(ctx, 6, 0, 4, 8, '#A89278');
+    px(ctx, 7, 1, '#BBA888'); px(ctx, 8, 2, '#BBA888');
+    px(ctx, 5, 6, '#6B5540'); px(ctx, 10, 9, '#6B5540');
+  });
+
+  // === CAMINO DE MONTAÑA ===
+  tileSprites.mountainPath = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#C4A86C');
+    for (let y = 0; y < 16; y += 3) for (let x = (y/3)%2; x < 16; x += 4) px(ctx, x, y, '#B0945C');
+    px(ctx, 3, 5, '#A88B50'); px(ctx, 11, 10, '#A88B50'); px(ctx, 7, 13, '#D4B87C');
+  });
+
+  // === SUELO DE RUINAS ===
+  tileSprites.ruinsFloor = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#5A5A6A');
+    for (let y = 0; y < 16; y += 4) { rect(ctx, 0, y, 16, 1, '#4A4A5A'); }
+    for (let x = 0; x < 16; x += 4) { rect(ctx, x, 0, 1, 16, '#4A4A5A'); }
+    px(ctx, 2, 2, '#6A6A7A'); px(ctx, 10, 6, '#3A3A4A'); px(ctx, 6, 12, '#6A6A7A');
+  });
+
+  // === PARED DE RUINAS ===
+  tileSprites.ruinsWall = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#3A3A4A');
+    for (let y = 0; y < 16; y += 4) rect(ctx, 0, y, 16, 2, '#2A2A3A');
+    rect(ctx, 3, 2, 4, 3, '#4A4A5A');
+    rect(ctx, 10, 8, 3, 4, '#4A4A5A');
+    px(ctx, 7, 5, '#555568'); px(ctx, 12, 3, '#555568');
+    // Crack details
+    px(ctx, 5, 7, '#222233'); px(ctx, 6, 8, '#222233'); px(ctx, 6, 9, '#222233');
+    px(ctx, 14, 11, '#222233'); px(ctx, 13, 12, '#222233');
+  });
+
+  // === PILAR DE RUINAS ===
+  tileSprites.pillar = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#5A5A6A');
+    for (let y = 0; y < 16; y += 4) rect(ctx, 0, y, 16, 1, '#4A4A5A');
+    rect(ctx, 5, 0, 6, 16, '#8A8A9A');
+    rect(ctx, 6, 0, 4, 16, '#9A9AAA');
+    rect(ctx, 4, 0, 8, 2, '#AAAABC');
+    rect(ctx, 4, 14, 8, 2, '#AAAABC');
+    px(ctx, 7, 4, '#BBBBCC'); px(ctx, 7, 8, '#BBBBCC');
+  });
+
+  // === MURO DEL MONASTERIO ===
+  tileSprites.monasteryWall = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#D4C4A0');
+    for (let y = 0; y < 16; y += 4) rect(ctx, 0, y, 16, 1, '#BBA880');
+    for (let x = 0; x < 16; x += 8) rect(ctx, x, 0, 1, 16, '#BBA880');
+    px(ctx, 4, 2, '#C4B490'); px(ctx, 12, 6, '#C4B490');
+  });
+
+  // === SUELO DEL MONASTERIO ===
+  tileSprites.monasteryFloor = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#E8D8B8');
+    for (let y = 0; y < 16; y += 4) rect(ctx, 0, y, 16, 1, '#D4C4A0');
+    for (let x = 0; x < 16; x += 4) rect(ctx, x, 0, 1, 16, '#D4C4A0');
+  });
+
+  // === ALTAR ===
+  tileSprites.altar = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#E8D8B8');
+    for (let y = 0; y < 16; y += 4) rect(ctx, 0, y, 16, 1, '#D4C4A0');
+    // Altar stone
+    rect(ctx, 3, 4, 10, 8, '#AAAABC');
+    rect(ctx, 4, 3, 8, 1, '#BBBCCC');
+    rect(ctx, 4, 12, 8, 1, '#888899');
+    // Cross symbol
+    rect(ctx, 7, 5, 2, 6, '#FFD700');
+    rect(ctx, 5, 7, 6, 2, '#FFD700');
+    // Candles
+    rect(ctx, 4, 4, 1, 2, '#FFFFFF');
+    px(ctx, 4, 3, '#FF8800');
+    rect(ctx, 11, 4, 1, 2, '#FFFFFF');
+    px(ctx, 11, 3, '#FF8800');
+  });
+
+  // === PORTAL OSCURO ===
+  tileSprites.darkPortal = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#5A5A6A');
+    // Portal frame
+    rect(ctx, 3, 1, 10, 14, '#220033');
+    rect(ctx, 4, 2, 8, 12, '#330055');
+    rect(ctx, 5, 3, 6, 10, '#440077');
+    // Swirl
+    px(ctx, 7, 5, '#8800CC'); px(ctx, 8, 6, '#AA44EE');
+    px(ctx, 6, 7, '#9922DD'); px(ctx, 9, 8, '#7700BB');
+    px(ctx, 7, 9, '#BB55FF'); px(ctx, 8, 10, '#6600AA');
+    // Particles
+    px(ctx, 5, 4, '#CC88FF'); px(ctx, 10, 11, '#CC88FF');
+    px(ctx, 4, 8, '#AA55EE'); px(ctx, 11, 6, '#AA55EE');
+  });
+
+  // === LAVA ===
+  tileSprites.lava = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#CC3300');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%3; x < 16; x += 4) px(ctx, x, y, '#FF5500');
+    px(ctx, 3, 3, '#FF8800'); px(ctx, 10, 7, '#FFAA00'); px(ctx, 7, 12, '#FF6600');
+    px(ctx, 5, 5, '#FFCC00'); px(ctx, 12, 10, '#FFCC00');
+  });
 }
 
 // --- TILE IDS ---
@@ -1414,7 +1545,10 @@ const T = {
   VOID: 0, GRASS: 1, GRASS2: 2, PATH: 3, WATER: 4, STONE_WALL: 5,
   TREE: 6, HOUSE_WALL: 7, ROOF: 8, DOOR: 9, FLOOR: 10,
   CAVE_FLOOR: 11, CAVE_WALL: 12, WINDOW: 13, FLOWERS: 14,
-  STAIRS_DOWN: 15, CHEST: 16, SIGN: 17, CRYSTAL: 18
+  STAIRS_DOWN: 15, CHEST: 16, SIGN: 17, CRYSTAL: 18,
+  MOUNTAIN: 19, MOUNTAIN_PATH: 20, RUINS_FLOOR: 21, RUINS_WALL: 22,
+  PILLAR: 23, MONASTERY_WALL: 24, MONASTERY_FLOOR: 25, ALTAR: 26,
+  DARK_PORTAL: 27, LAVA: 28
 };
 
 const tileMap = {
@@ -1424,10 +1558,13 @@ const tileMap = {
   [T.DOOR]: 'door', [T.FLOOR]: 'floor', [T.CAVE_FLOOR]: 'caveFloor',
   [T.CAVE_WALL]: 'caveWall', [T.WINDOW]: 'window', [T.FLOWERS]: 'flowers',
   [T.STAIRS_DOWN]: 'stairsDown', [T.CHEST]: 'chest', [T.SIGN]: 'sign',
-  [T.CRYSTAL]: 'crystal'
+  [T.CRYSTAL]: 'crystal', [T.MOUNTAIN]: 'mountain', [T.MOUNTAIN_PATH]: 'mountainPath',
+  [T.RUINS_FLOOR]: 'ruinsFloor', [T.RUINS_WALL]: 'ruinsWall', [T.PILLAR]: 'pillar',
+  [T.MONASTERY_WALL]: 'monasteryWall', [T.MONASTERY_FLOOR]: 'monasteryFloor',
+  [T.ALTAR]: 'altar', [T.DARK_PORTAL]: 'darkPortal', [T.LAVA]: 'lava'
 };
 
-const solidTiles = new Set([T.VOID, T.WATER, T.STONE_WALL, T.TREE, T.HOUSE_WALL, T.ROOF, T.CAVE_WALL, T.WINDOW, T.DOOR, T.CHEST, T.SIGN, T.CRYSTAL]);
+const solidTiles = new Set([T.VOID, T.WATER, T.STONE_WALL, T.TREE, T.HOUSE_WALL, T.ROOF, T.CAVE_WALL, T.WINDOW, T.DOOR, T.CHEST, T.SIGN, T.CRYSTAL, T.MOUNTAIN, T.RUINS_WALL, T.PILLAR, T.MONASTERY_WALL, T.LAVA]);
 
 // --- MAPAS ---
 // V = Vila Nova (pueblo), F = Bosque, C = Cueva
@@ -1449,8 +1586,8 @@ maps.village = {
     [6,6,14,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,14,1,6,6],
     [6,6,1,1,3,1,1,1,1,17,1,1,1,1,1,1,1,3,1,1,1,1,6,6],
     [6,6,1,1,3,1,1,14,1,1,1,1,14,1,1,1,1,3,1,1,1,1,6,6],
-    [6,6,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,6,6],
-    [6,6,1,8,8,8,1,1,1,1,4,4,4,1,1,1,1,3,1,14,1,1,6,6],
+    [6,6,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,3,3],
+    [6,6,1,8,8,8,1,1,1,1,4,4,4,1,1,1,1,3,1,14,1,3,3,3],
     [6,6,1,7,13,7,1,14,1,4,4,4,4,4,1,1,1,3,1,1,1,1,6,6],
     [6,6,1,7,9,7,1,1,1,1,4,4,4,1,1,1,1,3,1,1,1,1,6,6],
     [6,6,1,1,3,1,1,1,1,1,1,1,1,1,1,14,3,3,1,1,1,1,6,6],
@@ -1470,6 +1607,8 @@ maps.village = {
   triggers: [
     { x: 10, y: 19, type: 'mapChange', target: 'forest', tx: 1, ty: 0 },
     { x: 11, y: 19, type: 'mapChange', target: 'forest', tx: 2, ty: 0 },
+    { x: 23, y: 10, type: 'mapChange', target: 'montserrat', tx: 12, ty: 1 },
+    { x: 23, y: 11, type: 'mapChange', target: 'montserrat', tx: 12, ty: 1 },
   ],
   startX: 10, startY: 10,
 };
@@ -1606,40 +1745,310 @@ maps.cave = {
   startX: 7, startY: 1,
 };
 
+// === MAPA: MONTSERRAT ===
+maps.montserrat = {
+  name: 'Montaña de Montserrat',
+  width: 25, height: 30,
+  encounterRate: 14,
+  music: 'forest',
+  data: (() => {
+    const m = [];
+    for (let y = 0; y < 30; y++) {
+      m[y] = [];
+      for (let x = 0; x < 25; x++) {
+        if (y === 0 || y === 29 || x === 0 || x === 24) { m[y][x] = T.MOUNTAIN; continue; }
+        m[y][x] = T.MOUNTAIN;
+      }
+    }
+    // Main winding path up the mountain
+    function path(x1, y1, x2, y2) {
+      const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1);
+      let x = x1, y = y1;
+      while (x !== x2 || y !== y2) {
+        m[y][x] = T.MOUNTAIN_PATH;
+        if (x + 1 < 24) m[y][x + 1] = T.MOUNTAIN_PATH;
+        if (x !== x2) x += dx; else if (y !== y2) y += dy;
+      }
+      m[y2][x2] = T.MOUNTAIN_PATH;
+    }
+    // Entrance from village south
+    m[0][12] = T.MOUNTAIN_PATH; m[0][13] = T.MOUNTAIN_PATH;
+    path(12, 1, 12, 5);
+    path(12, 5, 6, 5);
+    path(6, 5, 6, 10);
+    path(6, 10, 18, 10);
+    path(18, 10, 18, 15);
+    path(18, 15, 10, 15);
+    path(10, 15, 10, 20);
+    // Monastery entrance area
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        if (10 + dx > 0 && 10 + dx < 24 && 20 + dy > 0 && 20 + dy < 29)
+          m[20 + dy][10 + dx] = T.MOUNTAIN_PATH;
+      }
+    }
+    // Monastery building
+    for (let dy = 0; dy < 5; dy++) {
+      for (let dx = 0; dx < 9; dx++) {
+        m[23 + dy][8 + dx] = T.MONASTERY_WALL;
+      }
+    }
+    // Monastery interior floor
+    for (let dy = 1; dy < 4; dy++) {
+      for (let dx = 1; dx < 8; dx++) {
+        m[23 + dy][8 + dx] = T.MONASTERY_FLOOR;
+      }
+    }
+    m[23][12] = T.DOOR;
+    m[25][12] = T.ALTAR;
+    // Path continues to ruins
+    path(10, 22, 10, 28);
+    m[29][10] = T.STAIRS_DOWN; m[29][11] = T.STAIRS_DOWN;
+    // Scattered trees and flowers
+    const treePosns = [[3,3],[5,2],[20,3],[22,7],[3,8],[21,13],[4,14],[22,18],[3,20],[21,25]];
+    treePosns.forEach(([tx,ty]) => { if(m[ty] && m[ty][tx] === T.MOUNTAIN) m[ty][tx] = T.TREE; });
+    const flowerPosns = [[8,6],[14,4],[7,11],[19,11],[16,16],[9,17]];
+    flowerPosns.forEach(([tx,ty]) => { if(m[ty] && m[ty][tx] === T.MOUNTAIN_PATH) m[ty][tx] = T.FLOWERS; });
+    // Chest on a side path
+    path(6, 7, 3, 7);
+    m[7][2] = T.CHEST;
+    return m;
+  })(),
+  npcs: [
+    { id: 'abadesa', sprite: 'oldman', x: 12, y: 25, dir: 3, name: 'Abadesa Mireia' },
+    { id: 'monkGuard', sprite: 'villager1', x: 10, y: 18, dir: 0, name: 'Monje Guardián' },
+    { id: 'montserrat_merchant', sprite: 'villager2', x: 14, y: 11, dir: 2, name: 'Mercader' },
+  ],
+  triggers: [
+    { x: 12, y: 0, type: 'mapChange', target: 'village', tx: 10, ty: 18 },
+    { x: 13, y: 0, type: 'mapChange', target: 'village', tx: 11, ty: 18 },
+    { x: 10, y: 29, type: 'mapChange', target: 'ruins', tx: 10, ty: 1 },
+    { x: 11, y: 29, type: 'mapChange', target: 'ruins', tx: 11, ty: 1 },
+  ],
+  startX: 12, startY: 1,
+};
+
+// === MAPA: RUINAS ANTIGUAS ===
+maps.ruins = {
+  name: 'Ruinas del Sello Antiguo',
+  width: 22, height: 30,
+  encounterRate: 18,
+  music: 'cave',
+  data: (() => {
+    const m = [];
+    for (let y = 0; y < 30; y++) {
+      m[y] = [];
+      for (let x = 0; x < 22; x++) {
+        m[y][x] = T.RUINS_WALL;
+      }
+    }
+    function corridor(x1, y1, x2, y2) {
+      const dx = Math.sign(x2 - x1), dy = Math.sign(y2 - y1);
+      let x = x1, y = y1;
+      while (x !== x2 || y !== y2) {
+        m[y][x] = T.RUINS_FLOOR;
+        if (x > 0) m[y][x - 1] = T.RUINS_FLOOR;
+        if (x < 21) m[y][x + 1] = T.RUINS_FLOOR;
+        if (x !== x2) x += dx; else if (y !== y2) y += dy;
+      }
+      m[y2][x2] = T.RUINS_FLOOR;
+    }
+    // Entrance hall
+    m[0][10] = T.STAIRS_DOWN; m[0][11] = T.STAIRS_DOWN;
+    m[1][10] = T.RUINS_FLOOR; m[1][11] = T.RUINS_FLOOR;
+    corridor(10, 1, 10, 6);
+    // First hall - wide room
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -4; dx <= 4; dx++) {
+        const ry = 6 + dy, rx = 10 + dx;
+        if (ry > 0 && ry < 29 && rx > 0 && rx < 21) m[ry][rx] = T.RUINS_FLOOR;
+      }
+    }
+    // Pillars in first hall
+    m[5][7] = T.PILLAR; m[5][13] = T.PILLAR;
+    m[7][7] = T.PILLAR; m[7][13] = T.PILLAR;
+    // Left wing
+    corridor(6, 6, 3, 6);
+    corridor(3, 6, 3, 12);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const ry = 12 + dy, rx = 3 + dx;
+        if (ry > 0 && rx > 0 && rx < 21) m[ry][rx] = T.RUINS_FLOOR;
+      }
+    }
+    // Right wing
+    corridor(14, 6, 18, 6);
+    corridor(18, 6, 18, 12);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const ry = 12 + dy, rx = 18 + dx;
+        if (ry > 0 && rx > 0 && rx < 21) m[ry][rx] = T.RUINS_FLOOR;
+      }
+    }
+    m[12][18] = T.CHEST; // chest in right wing
+    // Central corridor down
+    corridor(10, 8, 10, 15);
+    // Lava room
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -5; dx <= 5; dx++) {
+        const ry = 17 + dy, rx = 10 + dx;
+        if (ry > 0 && ry < 29 && rx > 0 && rx < 21) m[ry][rx] = T.RUINS_FLOOR;
+      }
+    }
+    // Lava pits
+    m[17][7] = T.LAVA; m[17][8] = T.LAVA;
+    m[17][12] = T.LAVA; m[17][13] = T.LAVA;
+    m[16][7] = T.LAVA; m[18][13] = T.LAVA;
+    // Corridor to deeper area
+    corridor(10, 19, 10, 23);
+    // Pre-boss hall
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -4; dx <= 4; dx++) {
+        const ry = 25 + dy, rx = 10 + dx;
+        if (ry > 0 && ry < 29 && rx > 0 && rx < 21) m[ry][rx] = T.RUINS_FLOOR;
+      }
+    }
+    // Pillars in boss room
+    m[24][7] = T.PILLAR; m[24][13] = T.PILLAR;
+    m[26][7] = T.PILLAR; m[26][13] = T.PILLAR;
+    // Dark portal at the end
+    m[27][10] = T.DARK_PORTAL;
+    // Crystal in left wing
+    m[12][3] = T.CRYSTAL;
+    return m;
+  })(),
+  npcs: [
+    { id: 'ruins_guardian', sprite: 'villager1', x: 10, y: 10, dir: 0, name: 'Guardiana Ancestral' },
+  ],
+  triggers: [
+    { x: 10, y: 0, type: 'mapChange', target: 'montserrat', tx: 10, ty: 28 },
+    { x: 11, y: 0, type: 'mapChange', target: 'montserrat', tx: 11, ty: 28 },
+    { x: 10, y: 25, type: 'boss2Trigger' },
+  ],
+  startX: 10, startY: 1,
+};
+
 // --- DATOS DE COMBATE ---
 const ENEMIES = {
   slime: {
-    name: 'Slime Verde', hp: 25, maxHp: 25, atk: 6, def: 2, spd: 3, mag: 1,
+    name: 'Slime Verde', hp: 38, maxHp: 38, atk: 9, def: 4, spd: 5, mag: 4,
     exp: 8, gil: 5, color: '#44CC44', color2: '#228822',
-    skills: [{ name: 'Ácido', power: 8, type: 'magic' }],
+    skills: [{ name: 'Ácido', power: 12, type: 'magic' }],
   },
   wolf: {
-    name: 'Lobo Oscuro', hp: 40, maxHp: 40, atk: 12, def: 5, spd: 8, mag: 2,
+    name: 'Lobo Oscuro', hp: 62, maxHp: 62, atk: 16, def: 8, spd: 10, mag: 5,
     exp: 15, gil: 10, color: '#555555', color2: '#333333',
-    skills: [{ name: 'Mordisco', power: 14, type: 'physical' }],
+    skills: [
+      { name: 'Mordisco', power: 18, type: 'physical' },
+      { name: 'Aullido Feroz', power: 10, type: 'magic' },
+    ],
   },
   bat: {
-    name: 'Murciélago', hp: 18, maxHp: 18, atk: 8, def: 3, spd: 14, mag: 3,
+    name: 'Murciélago', hp: 30, maxHp: 30, atk: 11, def: 5, spd: 16, mag: 7,
     exp: 10, gil: 6, color: '#553366', color2: '#331144',
-    skills: [{ name: 'Chillido', power: 6, type: 'magic' }],
+    skills: [
+      { name: 'Chillido', power: 10, type: 'magic' },
+      { name: 'Drenar Sangre', power: 8, type: 'drain' },
+    ],
   },
   skeleton: {
-    name: 'Esqueleto', hp: 50, maxHp: 50, atk: 14, def: 8, spd: 5, mag: 4,
+    name: 'Esqueleto', hp: 78, maxHp: 78, atk: 18, def: 12, spd: 7, mag: 7,
     exp: 20, gil: 15, color: '#DDDDCC', color2: '#AAAAAA',
-    skills: [{ name: 'Hueso Lanzado', power: 12, type: 'physical' }],
+    skills: [
+      { name: 'Hueso Lanzado', power: 18, type: 'physical' },
+      { name: 'Maldición Ósea', power: 14, type: 'magic' },
+    ],
   },
   darkKnight: {
-    name: 'Caballero Oscuro', hp: 70, maxHp: 70, atk: 18, def: 14, spd: 6, mag: 6,
+    name: 'Caballero Oscuro', hp: 115, maxHp: 115, atk: 24, def: 18, spd: 8, mag: 12,
     exp: 35, gil: 25, color: '#222244', color2: '#111122',
-    skills: [{ name: 'Tajo Oscuro', power: 20, type: 'magic' }],
+    skills: [
+      { name: 'Tajo Oscuro', power: 28, type: 'magic' },
+      { name: 'Embestida Sombría', power: 24, type: 'physical' },
+    ],
   },
   boss: {
-    name: 'Señor de las Sombras', hp: 350, maxHp: 350, atk: 24, def: 16, spd: 9, mag: 15,
+    name: 'Señor de las Sombras', hp: 520, maxHp: 520, atk: 30, def: 20, spd: 11, mag: 22,
     exp: 200, gil: 500, color: '#440066', color2: '#220033',
     skills: [
-      { name: 'Rayo Oscuro', power: 25, type: 'magic' },
-      { name: 'Golpe Sombra', power: 30, type: 'physical' },
-      { name: 'Drenar Vida', power: 15, type: 'drain' },
+      { name: 'Rayo Oscuro', power: 32, type: 'magic' },
+      { name: 'Golpe Sombra', power: 38, type: 'physical' },
+      { name: 'Drenar Vida', power: 22, type: 'drain' },
+      { name: 'Onda Tenebrosa', power: 26, type: 'magic', aoe: true },
+    ],
+    isBoss: true,
+  },
+  // --- Capítulo 2: Montserrat ---
+  gargoyle: {
+    name: 'Gárgola', hp: 125, maxHp: 125, atk: 26, def: 20, spd: 12, mag: 12,
+    exp: 40, gil: 30, color: '#666680', color2: '#444460',
+    skills: [
+      { name: 'Embestida Pétrea', power: 28, type: 'physical' },
+      { name: 'Grito Pétreo', power: 20, type: 'magic' },
+    ],
+  },
+  shadowMage: {
+    name: 'Mago Sombrío', hp: 88, maxHp: 88, atk: 14, def: 12, spd: 14, mag: 26,
+    exp: 45, gil: 35, color: '#332255', color2: '#221144',
+    skills: [
+      { name: 'Sombra Abismal', power: 30, type: 'magic' },
+      { name: 'Drenar Esencia', power: 16, type: 'drain' },
+      { name: 'Pulso Oscuro', power: 22, type: 'magic', aoe: true },
+    ],
+  },
+  golem: {
+    name: 'Gólem de Piedra', hp: 190, maxHp: 190, atk: 30, def: 28, spd: 4, mag: 4,
+    exp: 55, gil: 40, color: '#998877', color2: '#776655',
+    skills: [
+      { name: 'Puño de Roca', power: 36, type: 'physical' },
+      { name: 'Temblor', power: 22, type: 'physical', aoe: true },
+    ],
+  },
+  wraith: {
+    name: 'Espectro', hp: 72, maxHp: 72, atk: 12, def: 7, spd: 18, mag: 24,
+    exp: 35, gil: 25, color: '#AABBCC', color2: '#8899AA',
+    skills: [
+      { name: 'Toque Helado', power: 24, type: 'magic' },
+      { name: 'Lamento', power: 16, type: 'drain' },
+    ],
+  },
+  // --- Capítulo 2: Ruinas ---
+  ruinsGuardian: {
+    name: 'Centinela de Ruinas', hp: 165, maxHp: 165, atk: 30, def: 24, spd: 9, mag: 16,
+    exp: 60, gil: 45, color: '#5A5A7A', color2: '#3A3A5A',
+    skills: [
+      { name: 'Lanza Ancestral', power: 32, type: 'physical' },
+      { name: 'Escudo Sagrado', power: 0, type: 'buff_def' },
+      { name: 'Juicio Ancestral', power: 26, type: 'magic' },
+    ],
+  },
+  lavaBeast: {
+    name: 'Bestia de Lava', hp: 145, maxHp: 145, atk: 32, def: 16, spd: 10, mag: 20,
+    exp: 50, gil: 40, color: '#CC4400', color2: '#993300',
+    skills: [
+      { name: 'Aliento de Fuego', power: 34, type: 'magic' },
+      { name: 'Garra Ígnea', power: 28, type: 'physical' },
+      { name: 'Erupción', power: 24, type: 'magic', aoe: true },
+    ],
+  },
+  demonElite: {
+    name: 'Demonio de Élite', hp: 210, maxHp: 210, atk: 35, def: 22, spd: 13, mag: 22,
+    exp: 75, gil: 55, color: '#880022', color2: '#550011',
+    skills: [
+      { name: 'Tajo Infernal', power: 36, type: 'physical' },
+      { name: 'Llamas Oscuras', power: 32, type: 'magic' },
+      { name: 'Furia Demoníaca', power: 26, type: 'physical', aoe: true },
+    ],
+  },
+  boss2: {
+    name: 'Sombra Primordial', hp: 950, maxHp: 950, atk: 40, def: 28, spd: 14, mag: 34,
+    exp: 500, gil: 1000, color: '#110022', color2: '#000011',
+    skills: [
+      { name: 'Vacío Eterno', power: 42, type: 'magic' },
+      { name: 'Garras del Abismo', power: 48, type: 'physical' },
+      { name: 'Drenar Almas', power: 30, type: 'drain' },
+      { name: 'Eclipse Total', power: 38, type: 'magic', aoe: true },
+      { name: 'Rugido Primordial', power: 28, type: 'magic', aoe: true },
     ],
     isBoss: true,
   }
@@ -1660,6 +2069,23 @@ const encounterTables = {
     { enemies: ['skeleton', 'skeleton'], weight: 20 },
     { enemies: ['darkKnight', 'skeleton'], weight: 10 },
     { enemies: ['skeleton', 'bat', 'bat'], weight: 10 },
+  ],
+  montserrat: [
+    { enemies: ['gargoyle'], weight: 25 },
+    { enemies: ['shadowMage'], weight: 20 },
+    { enemies: ['wraith', 'wraith'], weight: 15 },
+    { enemies: ['gargoyle', 'shadowMage'], weight: 15 },
+    { enemies: ['golem'], weight: 15 },
+    { enemies: ['wraith', 'gargoyle'], weight: 10 },
+  ],
+  ruins: [
+    { enemies: ['ruinsGuardian'], weight: 20 },
+    { enemies: ['lavaBeast'], weight: 20 },
+    { enemies: ['demonElite'], weight: 15 },
+    { enemies: ['ruinsGuardian', 'lavaBeast'], weight: 15 },
+    { enemies: ['demonElite', 'ruinsGuardian'], weight: 10 },
+    { enemies: ['lavaBeast', 'lavaBeast'], weight: 10 },
+    { enemies: ['demonElite', 'lavaBeast', 'wraith'], weight: 10 },
   ],
 };
 
@@ -1700,9 +2126,9 @@ const game = {
   player: { x: 10, y: 10, dir: 0, moving: false, moveTimer: 0, stepCount: 0 },
   party: [],
   items: [
-    { id: 'pocion', name: 'Poción', count: 5, effect: 'heal', power: 50, desc: 'Restaura 50 HP' },
-    { id: 'eter', name: 'Éter', count: 3, effect: 'mp', power: 30, desc: 'Restaura 30 MP' },
-    { id: 'fenix', name: 'Pluma Fénix', count: 2, effect: 'revive', power: 50, desc: 'Revive con 50 HP' },
+    { id: 'pocion', name: 'Poción', count: 3, effect: 'heal', power: 40, desc: 'Restaura 40 HP' },
+    { id: 'eter', name: 'Éter', count: 2, effect: 'mp', power: 25, desc: 'Restaura 25 MP' },
+    { id: 'fenix', name: 'Pluma Fénix', count: 1, effect: 'revive', power: 40, desc: 'Revive con 40 HP' },
   ],
   gil: 100,
   flags: {},
@@ -1802,10 +2228,20 @@ function getDialogue(npcId) {
   const f = game.flags;
   switch (npcId) {
     case 'alcalde':
+      if (f.boss2Defeated) return [
+        { speaker: 'Alcalde Bernat', text: '¡Increíble! ¡Habéis destruido la Sombra Primordial!' },
+        { speaker: 'Alcalde Bernat', text: 'Cataluña está a salvo para siempre gracias a vosotros.' },
+        { speaker: 'Alcalde Bernat', text: 'Vuestros nombres serán recordados durante generaciones.' },
+      ];
+      if (f.ch2Started) return [
+        { speaker: 'Alcalde Bernat', text: 'Tened cuidado en Montserrat. Dicen que las criaturas de allí son más fuertes.' },
+        { speaker: 'Alcalde Bernat', text: 'Hablad con la Abadesa Mireia. Ella sabrá guiaros.' },
+      ];
       if (f.bossDefeated) return [
-        { speaker: 'Alcalde Bernat', text: '¡Habéis salvado Vila Nova! Sois los héroes de Cataluña.' },
-        { speaker: 'Alcalde Bernat', text: 'Todo el pueblo os debe la vida. Organizaremos un gran festín en vuestro honor.' },
-        { speaker: 'Alcalde Bernat', text: 'Pero... el Anciano Oriol me ha dicho algo inquietante. Habla con él cuando puedas.' },
+        { speaker: 'Alcalde Bernat', text: '¡Javier! ¡Habéis vuelto victoriosos!' },
+        { speaker: 'Alcalde Bernat', text: 'Todo el pueblo os debe la vida. ¡Sois los héroes de Vila Nova!' },
+        { speaker: 'Alcalde Bernat', text: 'Pero el Anciano Oriol quiere hablar contigo. Dice que es urgente.' },
+        { speaker: 'Alcalde Bernat', text: 'Algo sobre una amenaza mayor... Id a verle cuando podáis.' },
       ];
       if (f.pauJoined) return [
         { speaker: 'Alcalde Bernat', text: 'He oído que encontrasteis a un monje en el bosque. ¡Bien hecho!' },
@@ -1830,9 +2266,19 @@ function getDialogue(npcId) {
         { speaker: null, text: '>> Misión recibida: Investigar la fuente de las sombras', action: () => { game.flags.questStarted = true; } },
       ];
     case 'villager1':
+      if (f.boss2Defeated) return [
+        { speaker: 'Campesino', text: '¡Habéis salvado toda Cataluña! Mis nietos cantarán vuestras hazañas.' },
+        { speaker: 'Campesino', text: 'Las cosechas de este año van a ser las mejores de la historia. ¡Lo siento en los huesos!' },
+      ];
+      if (f.ch2Started) return [
+        { speaker: 'Campesino', text: '¿Vais a Montserrat? Mi abuelo peregrinaría allí cada año.' },
+        { speaker: 'Campesino', text: 'Decía que la montaña guarda secretos muy antiguos. Tened cuidado.' },
+        { speaker: 'Campesino', text: 'He oído que las gárgolas de piedra cobran vida por las noches...' },
+      ];
       if (f.bossDefeated) return [
         { speaker: 'Campesino', text: '¡Javier! ¡El héroe de Vila Nova! ¡Déjame estrecharte la mano!' },
         { speaker: 'Campesino', text: 'Los campos están volviendo a la normalidad. ¡Ya se ven brotes verdes otra vez!' },
+        { speaker: 'Campesino', text: 'Pero el Anciano Oriol parecía preocupado. Id a hablar con él.' },
       ];
       if (f.pauJoined) return [
         { speaker: 'Campesino', text: 'Veo que habéis encontrado refuerzos. ¡Que la suerte os acompañe en la cueva!' },
@@ -1847,9 +2293,19 @@ function getDialogue(npcId) {
         { speaker: 'Campesino', text: 'La vida en Vila Nova es tranquila. Espero que siga siendo así...' },
       ];
     case 'villager2':
+      if (f.boss2Defeated) return [
+        { speaker: 'Pescador', text: 'El lago nunca estuvo tan limpio. ¡Puedo ver hasta el fondo!' },
+        { speaker: 'Pescador', text: 'Gracias a vosotros, puedo pescar en paz el resto de mis días.' },
+      ];
+      if (f.ch2Started) return [
+        { speaker: 'Pescador', text: 'Un mercader que venía de Montserrat me dijo que hay cosas raras allí arriba.' },
+        { speaker: 'Pescador', text: 'Ruidos extraños por la noche, luces que salen de debajo de la montaña...' },
+        { speaker: 'Pescador', text: 'Sea lo que sea, sé que podréis con ello. ¡Ánimo!' },
+      ];
       if (f.bossDefeated) return [
         { speaker: 'Pescador', text: '¡Los peces han vuelto al lago! ¡Y más grandes que nunca!' },
         { speaker: 'Pescador', text: 'Todo gracias a vosotros. Os guardo la mejor trucha para la cena.' },
+        { speaker: 'Pescador', text: 'Pero dicen que el Anciano Oriol tiene algo importante que contaros.' },
       ];
       if (f.pauJoined) return [
         { speaker: 'Pescador', text: 'He visto luces extrañas en dirección a la cueva esta noche.' },
@@ -1879,12 +2335,28 @@ function getDialogue(npcId) {
         { speaker: 'Marina', text: 'Si algún día necesitas mis habilidades, solo tienes que pedirlo.' },
       ];
     case 'oldman':
+      if (f.boss2Defeated) return [
+        { speaker: 'Anciano Oriol', text: 'Habéis destruido la raíz de toda la oscuridad. El ciclo se ha roto.' },
+        { speaker: 'Anciano Oriol', text: 'Los antiguos Guardianes del Sello por fin pueden descansar en paz.' },
+        { speaker: 'Anciano Oriol', text: 'Y yo... puedo dejar de preocuparme. Cataluña está en buenas manos.' },
+      ];
+      if (f.ch2Started) return [
+        { speaker: 'Anciano Oriol', text: 'La Abadesa Mireia en Montserrat os espera. Ella custodia la entrada a las Ruinas.' },
+        { speaker: 'Anciano Oriol', text: 'Las crónicas hablan de una "Sombra Primordial", la fuente de todo el mal.' },
+        { speaker: 'Anciano Oriol', text: 'Si no la destruís, el Señor de las Sombras volverá. Y la próxima vez será más fuerte.' },
+      ];
       if (f.bossDefeated) return [
-        { speaker: 'Anciano Oriol', text: 'Lo habéis logrado... Pero debo advertiros de algo.' },
-        { speaker: 'Anciano Oriol', text: 'El Señor de las Sombras era solo un sirviente. El verdadero mal sigue dormido.' },
-        { speaker: 'Anciano Oriol', text: 'Según las crónicas antiguas, existe un poder más oscuro en las profundidades de Montserrat.' },
-        { speaker: 'Anciano Oriol', text: 'Debéis seguir entrenando. Cataluña os necesitará de nuevo...' },
-        { speaker: null, text: '>> El Anciano Oriol te mira con preocupación. ¿Qué más habrá escondido en estas tierras?' },
+        { speaker: 'Anciano Oriol', text: 'Javier... Tenéis que escucharme. Esto es importante.' },
+        { speaker: 'Anciano Oriol', text: 'El Señor de las Sombras era solo un sirviente. El verdadero mal sigue vivo.' },
+        { speaker: 'Anciano Oriol', text: 'Las crónicas antiguas hablan de una "Sombra Primordial" sellada bajo Montserrat.' },
+        { speaker: 'Anciano Oriol', text: 'El sello de la cueva se rompió porque el sello ORIGINAL bajo Montserrat se debilita.' },
+        { speaker: 'Anciano Oriol', text: 'Si no destruís la fuente, las sombras volverán. Una y otra vez.' },
+        { speaker: 'Javier', text: '...¿Montserrat? ¿El monasterio?' },
+        { speaker: 'Anciano Oriol', text: 'Bajo el monasterio hay unas ruinas ancestrales. La Abadesa Mireia puede guiaros.' },
+        { speaker: 'Anciano Oriol', text: 'Id a Montserrat. El camino se abre al este del pueblo.' },
+        { speaker: null, text: '>> ¡Capítulo 2 desbloqueado! El camino al este lleva a Montserrat.', action: () => {
+          game.flags.ch2Started = true;
+        }},
       ];
       if (f.pauJoined) return [
         { speaker: 'Anciano Oriol', text: 'Un monje de Montserrat, ¿eh? Eso es alentador.' },
@@ -2014,6 +2486,149 @@ function getDialogue(npcId) {
         { speaker: 'Javier', text: '¡Eso no pasará! ¡Por Vila Nova, por Cataluña... LUCHAREMOS!' },
         { speaker: null, text: '>> ¡COMBATE CONTRA EL JEFE FINAL!', action: () => { startBattle(['boss'], true); } },
       ];
+    // === CAPÍTULO 2: MONTSERRAT ===
+    case 'abadesa':
+      if (f.boss2Defeated) return [
+        { speaker: 'Abadesa Mireia', text: 'La Sombra Primordial ha sido destruida. El ciclo del mal se ha roto.' },
+        { speaker: 'Abadesa Mireia', text: 'Después de mil años, las Ruinas por fin están en paz.' },
+        { speaker: 'Abadesa Mireia', text: 'Sois los verdaderos herederos de los Guardianes del Sello. Que Dios os bendiga.' },
+      ];
+      if (f.abadessaTalked) return [
+        { speaker: 'Abadesa Mireia', text: 'Las Ruinas están al sur del monasterio. Seguid el camino.' },
+        { speaker: 'Abadesa Mireia', text: 'La Guardiana Ancestral dentro de las Ruinas os revelará más sobre el sello.' },
+        { speaker: 'Abadesa Mireia', text: 'Rezad antes de entrar. Os ayudará.' },
+      ];
+      return [
+        { speaker: 'Abadesa Mireia', text: '...Así que vosotros sois los héroes de Vila Nova. Os esperaba.' },
+        { speaker: 'Javier', text: '¿Nos esperaba?' },
+        { speaker: 'Abadesa Mireia', text: 'Las profecías del monasterio hablan de guerreros que vendrían tras derrotar al Señor de las Sombras.' },
+        { speaker: 'Abadesa Mireia', text: 'Lo que enfrentasteis en la cueva era solo un fragmento de un mal mucho más antiguo.' },
+        { speaker: 'Abadesa Mireia', text: 'Bajo este monasterio hay unas ruinas milenarias. El Sello Original está allí.' },
+        { speaker: 'Abadesa Mireia', text: 'En su interior mora la Sombra Primordial. La fuente de toda la oscuridad en Cataluña.' },
+        { speaker: 'Javier', text: '¿Más fuerte que el Señor de las Sombras?' },
+        { speaker: 'Abadesa Mireia', text: 'Incomparablemente más fuerte. Pero también lo sois vosotros, tras vuestras batallas.' },
+        { speaker: 'Abadesa Mireia', text: 'Tomad esto. Os será útil.', action: () => {
+          game.items.push({ id: 'megapocion', name: 'Mega Poción', count: 2, effect: 'heal', power: 80, desc: 'Restaura 80 HP' });
+          game.items.push({ id: 'megaeter', name: 'Mega Éter', count: 1, effect: 'mp', power: 40, desc: 'Restaura 40 MP' });
+        }},
+        { speaker: null, text: '>> ¡Recibido: 2x Mega Poción y 1x Mega Éter!' },
+        { speaker: 'Abadesa Mireia', text: 'Las Ruinas están al sur. Que vuestra fe os proteja.' },
+        { speaker: null, text: '>> Las Ruinas del Sello Antiguo están ahora accesibles.', action: () => {
+          game.flags.abadessaTalked = true;
+        }},
+      ];
+    case 'monkGuard':
+      if (f.boss2Defeated) return [
+        { speaker: 'Monje Guardián', text: 'La oscuridad se ha disipado completamente. ¡Gracias a vosotros!' },
+        { speaker: 'Monje Guardián', text: 'Ahora puedo volver a mis rezos en paz.' },
+      ];
+      if (f.abadessaTalked) return [
+        { speaker: 'Monje Guardián', text: '¿Vais a las Ruinas? Que Dios os proteja.' },
+        { speaker: 'Monje Guardián', text: 'He oído que hay gólems de piedra que custodian los pasillos. ¡No bajéis la guardia!' },
+        { speaker: 'Monje Guardián', text: 'Y cuidado con la lava en los niveles inferiores. Es mortal al tacto.' },
+      ];
+      return [
+        { speaker: 'Monje Guardián', text: 'Bienvenidos a Montserrat. El monasterio lleva siglos custodiando estos terrenos.' },
+        { speaker: 'Monje Guardián', text: 'Últimamente los monstruos se han vuelto más agresivos. Las gárgolas bajan de noche.' },
+        { speaker: 'Monje Guardián', text: 'Hablad con la Abadesa Mireia dentro del monasterio. Ella os explicará todo.' },
+      ];
+    case 'montserrat_merchant':
+      if (f.boss2Defeated) return [
+        { speaker: 'Mercader', text: '¡Los héroes de Cataluña! ¡Qué honor conoceros!' },
+        { speaker: 'Mercader', text: 'Ahora que el peligro ha pasado, el comercio vuelve a fluir por los caminos.' },
+      ];
+      return [
+        { speaker: 'Mercader', text: 'Soy un mercader ambulante. Subo a Montserrat a vender provisiones a los monjes.' },
+        { speaker: 'Mercader', text: 'Últimamente el camino está lleno de monstruos. Casi no llego.' },
+        { speaker: 'Mercader', text: 'Tomad, os regalo estas pociones. A vosotros os harán más falta que a mí.', action: () => {
+          const pocion = game.items.find(i => i.id === 'pocion');
+          if (pocion) pocion.count += 2; else game.items.push({ id: 'pocion', name: 'Poción', count: 2, effect: 'heal', power: 40, desc: 'Restaura 40 HP' });
+          game.flags.merchantGift = true;
+        }},
+        { speaker: null, text: '>> ¡Recibido: 2x Poción!' },
+        { speaker: 'Mercader', text: '¡Buena suerte ahí arriba! Si sobrevivís, contadme la historia.' },
+      ];
+    case 'ruins_guardian':
+      if (f.boss2Defeated) return [
+        { speaker: 'Guardiana Ancestral', text: 'Lo habéis conseguido. La Sombra Primordial ya no existe.' },
+        { speaker: 'Guardiana Ancestral', text: 'Después de milenios de vigilia, por fin puedo descansar...' },
+        { speaker: 'Guardiana Ancestral', text: 'Gracias, guerreros. Sois los más valientes que he conocido en mil años.' },
+      ];
+      if (f.ruinsGuardianTalked) return [
+        { speaker: 'Guardiana Ancestral', text: 'La Sombra Primordial está más allá de la sala de lava. Seguid al sur.' },
+        { speaker: 'Guardiana Ancestral', text: 'Usad la magia de curación antes de enfrentarla. Necesitaréis toda vuestra fuerza.' },
+      ];
+      return [
+        { speaker: '???', text: 'Alto, viajeros. No deis un paso más.' },
+        { speaker: 'Javier', text: '¿Quién eres? ¿Otra guardiana?' },
+        { speaker: 'Guardiana Ancestral', text: 'Soy la Guardiana Ancestral de estas Ruinas. Llevo aquí desde que se formó el Sello Original.' },
+        { speaker: 'Guardiana Ancestral', text: 'Hace mil años, diez guerreros dimos nuestras vidas para sellar a la Sombra Primordial.' },
+        { speaker: 'Guardiana Ancestral', text: 'El Espíritu Guardián de la cueva era uno de nosotros. Cinco se quedaron allí, cinco aquí.' },
+        { speaker: 'Javier', text: 'Entonces la cueva y estas ruinas están conectadas...' },
+        { speaker: 'Guardiana Ancestral', text: 'Exacto. El Señor de las Sombras era solo un fragmento que escapó del sello principal.' },
+        { speaker: 'Guardiana Ancestral', text: 'Lo que os espera al fondo de estas Ruinas es infinitamente peor.' },
+        { speaker: 'Guardiana Ancestral', text: 'Pero habéis llegado hasta aquí. Eso significa que tenéis el poder para vencerla.' },
+        { speaker: 'Guardiana Ancestral', text: 'Aceptad mi bendición final. Toda la fuerza que me queda es para vosotros.', action: () => {
+          game.flags.ruinsGuardianTalked = true;
+          game.party.forEach(p => { p.atk += 5; p.def += 5; p.mag += 5; p.hp = p.maxHp; p.mp = p.maxMp; });
+        }},
+        { speaker: null, text: '>> ¡Bendición Ancestral! ATK +5, DEF +5, MAG +5 y HP/MP restaurados.' },
+        { speaker: 'Guardiana Ancestral', text: 'Id al sur. Cruzad la sala de lava. Y terminad lo que empezamos hace mil años.' },
+      ];
+    case 'chest_ruins':
+      if (f.chestRuinsOpened) return [
+        { speaker: null, text: 'El cofre está vacío.' },
+      ];
+      return [
+        { speaker: null, text: '¡Encontraste un Elixir, una Pluma Fénix y 500 Gil!', action: () => {
+          game.flags.chestRuinsOpened = true;
+          game.items.push({ id: 'elixir', name: 'Elixir', count: 1, effect: 'full', power: 999, desc: 'Restaura HP y MP' });
+          const fenix = game.items.find(i => i.id === 'fenix');
+          if (fenix) fenix.count += 1; else game.items.push({ id: 'fenix', name: 'Pluma Fénix', count: 1, effect: 'revive', power: 50, desc: 'Revive con 50 HP' });
+          game.gil += 500;
+        }},
+      ];
+    case 'chest_montserrat':
+      if (f.chestMontserratOpened) return [
+        { speaker: null, text: 'El cofre está vacío.' },
+      ];
+      return [
+        { speaker: null, text: '¡Encontraste una Mega Poción y 300 Gil!', action: () => {
+          game.flags.chestMontserratOpened = true;
+          game.items.push({ id: 'megapocion', name: 'Mega Poción', count: 1, effect: 'heal', power: 80, desc: 'Restaura 80 HP' });
+          game.gil += 300;
+        }},
+      ];
+    case 'crystal_ruins':
+      if (f.crystalRuinsTouched) return [
+        { speaker: null, text: 'El cristal emite un resplandor débil. Su energía ya fue consumida.' },
+      ];
+      return [
+        { speaker: null, text: 'Un cristal antiguo brilla con una luz intensa...' },
+        { speaker: null, text: '¡La energía del cristal os rodea! +50 HP y +30 MP restaurados.', action: () => {
+          game.flags.crystalRuinsTouched = true;
+          game.party.forEach(p => {
+            p.hp = Math.min(p.maxHp, p.hp + 50);
+            p.mp = Math.min(p.maxMp, p.mp + 30);
+          });
+        }},
+      ];
+    case 'boss2_intro':
+      return [
+        { speaker: null, text: 'El suelo tiembla. Una oscuridad absoluta os envuelve.' },
+        { speaker: '???', text: '...' },
+        { speaker: '???', text: 'Así que los insectos que destruyeron a mi títere se atreven a venir aquí.' },
+        { speaker: 'Sombra Primordial', text: 'Soy la SOMBRA PRIMORDIAL. Existo desde antes de que existiera la luz.' },
+        { speaker: 'Sombra Primordial', text: 'Diez guerreros me sellaron hace mil años. Diez guerreros que ahora no son más que polvo.' },
+        { speaker: 'Sombra Primordial', text: 'El Señor de las Sombras... era solo una extensión de mi voluntad. Un dedo de mi mano.' },
+        { speaker: 'Javier', text: '...' },
+        { speaker: 'Sombra Primordial', text: '¿Tembláis? Es natural. DEBÉIS temblar ante lo que no podéis comprender.' },
+        { speaker: 'Javier', text: 'No tiemblo. He luchado contra sombras, monstruos y el miedo mismo.' },
+        { speaker: 'Javier', text: 'Hemos venido hasta aquí con un propósito: ¡DESTRUIRTE!' },
+        { speaker: 'Sombra Primordial', text: 'Qué arrogancia tan... refrescante. Hace mil años dijeron lo mismo.' },
+        { speaker: 'Sombra Primordial', text: '¡PREPARAOS PARA LA NOCHE ETERNA!' },
+        { speaker: null, text: '>> ¡COMBATE FINAL: LA SOMBRA PRIMORDIAL!', action: () => { startBattle(['boss2'], true); } },
+      ];
     default:
       return [{ speaker: null, text: '...' }];
   }
@@ -2051,7 +2666,7 @@ function movePlayer(dx, dy) {
   // Random encounters
   if (map.encounterRate > 0 && game.player.stepCount % 4 === 0) {
     if (Math.random() * 100 < map.encounterRate) {
-      const table = map.music === 'forest' ? encounterTables.forest : encounterTables.cave;
+      const table = encounterTables[game.currentMap] || (map.music === 'forest' ? encounterTables.forest : encounterTables.cave);
       if (table) {
         const totalWeight = table.reduce((s, e) => s + e.weight, 0);
         let roll = Math.random() * totalWeight;
@@ -2086,11 +2701,30 @@ function checkTriggers() {
           game.player.y--;
           return;
         }
+        if (trigger.target === 'montserrat' && !game.flags.ch2Started) {
+          startDialogue([
+            { speaker: 'Javier', text: 'No hay nada por ahí que me interese ahora mismo.' },
+          ]);
+          game.player.y--;
+          return;
+        }
+        if (trigger.target === 'ruins' && !game.flags.abadessaTalked) {
+          startDialogue([
+            { speaker: 'Javier', text: 'Debería hablar con la Abadesa antes de adentrarme más.' },
+          ]);
+          game.player.y--;
+          return;
+        }
         changeMap(trigger.target, trigger.tx, trigger.ty);
       } else if (trigger.type === 'bossTrigger') {
         if (!game.flags.bossDefeated && !game.flags.bossTriggered) {
           game.flags.bossTriggered = true;
           startDialogue(getDialogue('boss_intro'));
+        }
+      } else if (trigger.type === 'boss2Trigger') {
+        if (!game.flags.boss2Defeated && !game.flags.boss2Triggered) {
+          game.flags.boss2Triggered = true;
+          startDialogue(getDialogue('boss2_intro'));
         }
       }
     }
@@ -2123,9 +2757,23 @@ function interact() {
   if (tile === T.SIGN) {
     startDialogue(getDialogue('sign_village'));
   } else if (tile === T.CHEST) {
-    startDialogue(getDialogue('chest_cave'));
+    const chestMap = { cave: 'chest_cave', montserrat: 'chest_montserrat', ruins: 'chest_ruins' };
+    startDialogue(getDialogue(chestMap[game.currentMap] || 'chest_cave'));
   } else if (tile === T.CRYSTAL) {
-    startDialogue(getDialogue('crystal_cave'));
+    const crystalMap = { cave: 'crystal_cave', ruins: 'crystal_ruins' };
+    startDialogue(getDialogue(crystalMap[game.currentMap] || 'crystal_cave'));
+  } else if (tile === T.ALTAR) {
+    startDialogue([
+      { speaker: null, text: 'Un altar sagrado. Sientes una energía reconfortante.' },
+      { speaker: null, text: '¡El altar os bendice! HP y MP restaurados.', action: () => {
+        game.party.forEach(p => { p.hp = p.maxHp; p.mp = p.maxMp; });
+      }},
+    ]);
+  } else if (tile === T.DARK_PORTAL) {
+    startDialogue([
+      { speaker: null, text: 'Un portal oscuro emana una energía terrible. No parece seguro entrar.' },
+      { speaker: null, text: 'Sientes que algo poderoso espera al otro lado...' },
+    ]);
   }
 }
 
@@ -2223,7 +2871,7 @@ function startBattle(enemyIds, isBoss) {
     ...JSON.parse(JSON.stringify(ENEMIES[id])),
     index: i,
     alive: true,
-    atbGauge: Math.random() * 30,
+    atbGauge: Math.random() * 50,
     atbMax: 100,
     isEnemy: true,
     buffAtk: 0, buffDef: 0,
@@ -2325,14 +2973,15 @@ function updateBattle() {
           if (real && p.alive) {
             real.hp = p.hp;
             real.mp = p.mp;
-            real.exp += b.totalExp;
+            const aliveCount = b.party.filter(pp => pp.alive).length;
+            real.exp += Math.floor(b.totalExp / aliveCount);
             // Level up check
             while (real.exp >= real.nextExp) {
               real.level++;
               real.exp -= real.nextExp;
-              real.nextExp = Math.floor(real.nextExp * 1.3);
-              real.maxHp += 8 + Math.floor(Math.random() * 5);
-              real.maxMp += 3 + Math.floor(Math.random() * 3);
+              real.nextExp = Math.floor(real.nextExp * 1.4);
+              real.maxHp += 6 + Math.floor(Math.random() * 4);
+              real.maxMp += 2 + Math.floor(Math.random() * 3);
               real.atk += 1 + Math.floor(Math.random() * 2);
               real.def += 1 + Math.floor(Math.random() * 2);
               real.spd += Math.floor(Math.random() * 2);
@@ -2345,10 +2994,28 @@ function updateBattle() {
         game.gil += b.totalGil;
 
         if (b.isBoss) {
-          game.flags.bossDefeated = true;
-          game.state = 'victory';
-          game.battle = null;
-          playMusic('menu');
+          if (b.enemies[0] && b.enemies[0].name === 'Sombra Primordial') {
+            // Boss 2 defeated - final victory credits
+            game.flags.boss2Defeated = true;
+            game.state = 'victory';
+            game.battle = null;
+            playMusic('menu');
+          } else {
+            // Boss 1 defeated - return to village for chapter 2
+            game.flags.bossDefeated = true;
+            game.battle = null;
+            game.currentMap = 'village';
+            game.player.x = maps.village.startX;
+            game.player.y = maps.village.startY;
+            playMusic('world');
+            startDialogue([
+              { speaker: null, text: '¡El Señor de las Sombras ha sido derrotado!' },
+              { speaker: null, text: 'La oscuridad se disipa. Sentís una oleada de alivio.' },
+              { speaker: 'Javier', text: '...Lo conseguimos. Volvamos al pueblo.' },
+              { speaker: null, text: '>> Habéis regresado a Vila Nova victoriosos.' },
+              { speaker: null, text: '>> Habla con el Alcalde y los aldeanos para continuar la historia.' },
+            ]);
+          }
         } else {
           game.state = 'explore';
           game.battle = null;
@@ -2528,7 +3195,7 @@ function executeAttack(attacker, target) {
   const b = game.battle;
   const atk = attacker.atk + attacker.buffAtk;
   const def = target.def + target.buffDef + (target.defending ? 10 : 0);
-  let damage = Math.max(1, atk * 2 - def + Math.floor(Math.random() * 6));
+  let damage = Math.max(1, Math.floor(atk * 1.5) - def + Math.floor(Math.random() * 6));
 
   target.hp = Math.max(0, target.hp - damage);
   if (target.hp <= 0) target.alive = false;
@@ -2574,7 +3241,7 @@ function executeSkill(caster, skill, target) {
     const atk = skill.type === 'magic' ? caster.mag : caster.atk;
     const def = target.def + target.buffDef + (target.defending ? 10 : 0);
     let damage = Math.max(1, skill.power + atk - def / 2 + Math.floor(Math.random() * 8));
-    if (skill.type === 'magic') damage = Math.max(1, skill.power + caster.mag * 1.5 - target.def / 3);
+    if (skill.type === 'magic') damage = Math.max(1, skill.power + Math.floor(caster.mag * 1.2) - target.def / 3);
     damage = Math.floor(damage);
 
     target.hp = Math.max(0, target.hp - damage);
@@ -2989,37 +3656,99 @@ function executeEnemyTurn(enemy) {
   const aliveParty = b.party.filter(p => p.alive);
   if (aliveParty.length === 0) return;
 
-  const target = aliveParty[Math.floor(Math.random() * aliveParty.length)];
+  // Smart targeting: 35% chance to target lowest HP ally
+  let target;
+  if (Math.random() < 0.35) {
+    target = aliveParty.reduce((low, p) => p.hp < low.hp ? p : low, aliveParty[0]);
+  } else {
+    target = aliveParty[Math.floor(Math.random() * aliveParty.length)];
+  }
 
-  // Choose between normal attack and skill
-  const useSkill = enemy.skills && enemy.skills.length > 0 && Math.random() < 0.4;
+  // Bosses use skills more often; rage mode below 30% HP
+  const isBoss = enemy.isBoss;
+  const isEnraged = isBoss && enemy.hp < enemy.maxHp * 0.3;
+  const skillChance = isBoss ? (isEnraged ? 0.90 : 0.80) : 0.65;
+  const useSkill = enemy.skills && enemy.skills.length > 0 && Math.random() < skillChance;
 
   if (useSkill) {
-    const skill = enemy.skills[Math.floor(Math.random() * enemy.skills.length)];
-    let damage;
-    if (skill.type === 'physical') {
-      damage = Math.max(1, skill.power + enemy.atk - target.def - target.buffDef - (target.defending ? 10 : 0));
-    } else if (skill.type === 'drain') {
-      damage = Math.max(1, skill.power + enemy.mag - target.def / 2);
-      enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(damage / 2));
+    // Bosses prefer AOE when multiple targets alive; enraged bosses pick strongest skill
+    let skill;
+    if (isEnraged) {
+      skill = enemy.skills.reduce((best, s) => s.power > best.power ? s : best, enemy.skills[0]);
+    } else if (isBoss && aliveParty.length >= 2 && Math.random() < 0.45) {
+      const aoeSkills = enemy.skills.filter(s => s.aoe);
+      skill = aoeSkills.length > 0 ? aoeSkills[Math.floor(Math.random() * aoeSkills.length)]
+        : enemy.skills[Math.floor(Math.random() * enemy.skills.length)];
     } else {
-      damage = Math.max(1, skill.power + enemy.mag - target.def / 3);
+      skill = enemy.skills[Math.floor(Math.random() * enemy.skills.length)];
     }
-    damage = Math.floor(damage + Math.random() * 4);
 
-    target.hp = Math.max(0, target.hp - damage);
-    if (target.hp <= 0) target.alive = false;
+    // AOE: hits all alive party members with reduced per-target damage
+    if (skill.aoe) {
+      let totalDmgMsg = [];
+      aliveParty.forEach(t => {
+        let damage;
+        if (skill.type === 'physical') {
+          damage = Math.max(1, skill.power + enemy.atk - t.def - t.buffDef - (t.defending ? 10 : 0));
+        } else if (skill.type === 'drain') {
+          damage = Math.max(1, skill.power + enemy.mag - t.def / 2);
+        } else {
+          damage = Math.max(1, skill.power + enemy.mag - t.def / 3);
+        }
+        damage = Math.floor((damage + Math.random() * 6) * 0.75); // AOE 75% dmg
+        t.hp = Math.max(0, t.hp - damage);
+        if (t.hp <= 0) t.alive = false;
+        totalDmgMsg.push(damage);
+        addFloatingText(195, 30 + t.index * 35 - 5, '-' + damage, '#FF4444');
+      });
+      if (skill.type === 'drain') {
+        const totalDrain = totalDmgMsg.reduce((a, b) => a + b, 0);
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(totalDrain / 3));
+      }
+      b.message = enemy.name + ' usa ' + skill.name + '! Golpea a todos!';
+      b.flashTimer = 14;
+      b.flashColor = '#FF2222';
+      sfxForSkill(skill.name);
+      for (let pi = 0; pi < 12; pi++) b.particles.push({
+        x: 195 + (Math.random()-0.5)*30, y: 60 + Math.random()*50,
+        vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4,
+        life: 20 + Math.random()*12, color: pi%2?'#FF4444':'#FF8866', size: 1.5+Math.random(),
+      });
+    } else {
+      // Single target skill
+      if (skill.type === 'buff_def') {
+        enemy.buffDef += 8;
+        b.message = enemy.name + ' usa ' + skill.name + '! +DEF!';
+        b.flashTimer = 8;
+        b.flashColor = '#4488FF';
+        sfxForSkill(skill.name);
+      } else {
+      let damage;
+      if (skill.type === 'physical') {
+        damage = Math.max(1, skill.power + enemy.atk - target.def - target.buffDef - (target.defending ? 10 : 0));
+      } else if (skill.type === 'drain') {
+        damage = Math.max(1, skill.power + enemy.mag - target.def / 2);
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(damage / 2));
+      } else {
+        damage = Math.max(1, skill.power + enemy.mag - target.def / 3);
+      }
+      damage = Math.floor(damage + Math.random() * 6);
 
-    b.message = enemy.name + ' usa ' + skill.name + '! ' + damage + ' daño a ' + target.name;
-    b.flashTimer = 10;
-    b.flashColor = '#FF4444';
-    sfxForSkill(skill.name);
-    addFloatingText(195, 30 + target.index * 35 - 5, '-' + damage, '#FF4444');
-    for (let pi = 0; pi < 8; pi++) b.particles.push({
-      x: 195 + (Math.random()-0.5)*15, y: 45 + target.index*35,
-      vx: (Math.random()-0.5)*3, vy: (Math.random()-0.5)*3,
-      life: 15 + Math.random()*10, color: pi%2?'#FF4444':'#FF8866', size: 1+Math.random(),
-    });
+      target.hp = Math.max(0, target.hp - damage);
+      if (target.hp <= 0) target.alive = false;
+
+      b.message = enemy.name + ' usa ' + skill.name + '! ' + damage + ' daño a ' + target.name;
+      b.flashTimer = 10;
+      b.flashColor = '#FF4444';
+      sfxForSkill(skill.name);
+      addFloatingText(195, 30 + target.index * 35 - 5, '-' + damage, '#FF4444');
+      for (let pi = 0; pi < 8; pi++) b.particles.push({
+        x: 195 + (Math.random()-0.5)*15, y: 45 + target.index*35,
+        vx: (Math.random()-0.5)*3, vy: (Math.random()-0.5)*3,
+        life: 15 + Math.random()*10, color: pi%2?'#FF4444':'#FF8866', size: 1+Math.random(),
+      });
+      }
+    }
   } else {
     const def = target.def + target.buffDef + (target.defending ? 10 : 0);
     let damage = Math.max(1, enemy.atk * 2 - def + Math.floor(Math.random() * 6));
@@ -4259,7 +4988,16 @@ function drawMap() {
 // --- MISIÓN ACTUAL ---
 function getCurrentMission() {
   const f = game.flags;
-  if (f.bossDefeated) return 'Habla con los aldeanos';
+  // Capítulo 2
+  if (f.boss2Defeated) return 'Mision completada!';
+  if (f.boss2Triggered) return 'Derrota a la Sombra Primordial';
+  if (f.ruinsGuardianTalked) return 'Llega al fondo de las Ruinas';
+  if (f.abadessaTalked && game.currentMap === 'ruins') return 'Explora las Ruinas';
+  if (f.abadessaTalked) return 'Entra en las Ruinas';
+  if (f.ch2Started && game.currentMap === 'montserrat') return 'Habla con la Abadesa';
+  if (f.ch2Started) return 'Ve a Montserrat (este)';
+  // Capítulo 1
+  if (f.bossDefeated) return 'Habla con Anciano Oriol';
   if (f.bossTriggered) return 'Derrota al Senor de Sombras';
   if (f.spiritBlessing) return 'Adentrate en la cueva';
   if (f.pauJoined && game.currentMap === 'cave') return 'Explora la cueva';
@@ -4513,14 +5251,18 @@ function drawVictoryScreen() {
 
   const lines = [
     '',
-    'El Señor de las Sombras ha sido derrotado.',
+    'La Sombra Primordial ha sido destruida.',
     '',
-    'La paz vuelve a Cataluña.',
-    'Los campos florecen de nuevo,',
-    'y las sombras se disipan al fin.',
+    'Tras mil años de oscuridad,',
+    'el ciclo del mal se ha roto para siempre.',
     '',
-    'Los héroes regresan a Vila Nova',
-    'donde son recibidos como leyendas.',
+    'Los campos de Cataluña florecen,',
+    'las aguas vuelven a ser cristalinas,',
+    'y la montaña de Montserrat descansa al fin.',
+    '',
+    'Los héroes regresan a Vila Nova,',
+    'donde son recibidos como leyendas',
+    'cuyas hazañas se cantarán por generaciones.',
     '',
     '- - - - - - - - -',
     '',
@@ -4547,15 +5289,18 @@ function drawVictoryScreen() {
     '',
     'ERMITAÑO DEL BOSQUE',
     'ESPÍRITU GUARDIÁN',
+    'GUARDIANA ANCESTRAL',
+    'ABADESA MIREIA',
     'ANCIANO ORIOL',
     'ALCALDE BERNAT',
     '',
     '- - - - - - - - -',
     '',
-    'Gracias por jugar a la Demo de',
+    'Gracias por jugar a',
     'FINAL FANTASY CATALONIA',
+    'Versión 2.0 Beta',
     '',
-    'Continuará...',
+    'FIN',
   );
 
   const goldNames = ['JAVIER','MARINA','PAU','GOJO','SUKUNA','FINAL'];
