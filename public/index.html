@@ -3,24 +3,355 @@
 <head>
 <meta charset="UTF-8">
 <title>Final Fantasy Catalonia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Press Start 2P', monospace; }
 canvas { image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; }
 #ui-overlay {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  pointer-events: none; font-family: monospace; color: white;
+  pointer-events: none; font-family: 'Press Start 2P', monospace; color: white;
 }
+/* --- AUTH OVERLAY --- */
+#auth-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100;
+  background: radial-gradient(ellipse at center, #0A0A2E 0%, #000010 70%);
+  display: flex; justify-content: center; align-items: center;
+  font-family: 'Press Start 2P', monospace; color: #FFF;
+}
+#auth-overlay.hidden { display: none; }
+.auth-stars {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: transparent; pointer-events: none;
+}
+.auth-box {
+  position: relative; z-index: 2;
+  border: 3px solid #4466AA; background: rgba(8, 8, 40, 0.95); border-radius: 4px;
+  padding: 32px 40px; min-width: 420px; max-width: 480px;
+  box-shadow: 0 0 30px rgba(50, 80, 180, 0.3), inset 0 0 20px rgba(50, 80, 180, 0.1);
+}
+.auth-box::before {
+  content: ''; position: absolute; inset: 3px; border: 1px solid #8899CC;
+  border-radius: 2px; pointer-events: none;
+}
+.auth-title { text-align: center; font-size: 11px; color: #88CCFF; margin-bottom: 6px; text-shadow: 0 0 10px rgba(100,180,255,0.5); }
+.auth-subtitle { text-align: center; font-size: 20px; color: #FFD700; margin-bottom: 24px; text-shadow: 2px 2px 0px #AA6600; letter-spacing: 2px; }
+.auth-label { display: block; font-size: 8px; color: #88AACC; margin-bottom: 6px; }
+.auth-input {
+  width: 100%; padding: 10px 12px; margin-bottom: 16px;
+  background: #0A0A2A; border: 2px solid #334488; border-radius: 2px;
+  color: #FFF; font-family: 'Press Start 2P', monospace; font-size: 10px;
+  outline: none; transition: border-color 0.2s;
+}
+.auth-input:focus { border-color: #6688CC; box-shadow: 0 0 8px rgba(100,130,200,0.3); }
+.auth-input::placeholder { color: #334466; }
+.auth-btn {
+  width: 100%; padding: 12px; margin-top: 8px;
+  background: linear-gradient(180deg, #2244AA 0%, #1A2266 100%);
+  border: 2px solid #4466CC; border-radius: 2px;
+  color: #FFD700; font-family: 'Press Start 2P', monospace; font-size: 10px;
+  cursor: pointer; text-shadow: 1px 1px 0px #000;
+  transition: all 0.15s;
+}
+.auth-btn:hover { background: linear-gradient(180deg, #3355CC 0%, #2233AA 100%); border-color: #6688EE; transform: translateY(-1px); }
+.auth-btn:active { transform: translateY(1px); }
+.auth-switch { text-align: center; margin-top: 16px; font-size: 7px; color: #667788; }
+.auth-switch a { color: #4488CC; cursor: pointer; text-decoration: underline; }
+.auth-switch a:hover { color: #66AAEE; }
+.auth-error { color: #FF4444; font-size: 7px; text-align: center; margin-top: 8px; min-height: 12px; }
+.auth-success { color: #44FF44; font-size: 7px; text-align: center; margin-top: 8px; }
+.auth-user-bar {
+  position: fixed; top: 8px; right: 12px; z-index: 50;
+  font-family: 'Press Start 2P', monospace; font-size: 7px;
+  color: #88AACC; display: flex; gap: 12px; align-items: center;
+}
+.auth-user-bar.hidden { display: none; }
+.auth-user-bar span { color: #FFD700; }
+.auth-user-bar button {
+  background: none; border: 1px solid #445566; color: #88AACC;
+  font-family: 'Press Start 2P', monospace; font-size: 6px;
+  padding: 3px 8px; cursor: pointer; border-radius: 2px;
+}
+.auth-user-bar button:hover { border-color: #6688AA; color: #AACCEE; }
+.auth-lock-icon { font-size: 10px; margin-right: 4px; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+
+<!-- Auth overlay -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <div class="auth-title">FINAL FANTASY</div>
+    <div class="auth-subtitle">CATALONIA</div>
+    <div id="auth-login">
+      <label class="auth-label">USUARIO</label>
+      <input class="auth-input" id="login-user" type="text" placeholder="Tu nombre de guerrero" autocomplete="username" maxlength="20">
+      <label class="auth-label">CONTRASEÑA</label>
+      <input class="auth-input" id="login-pass" type="password" placeholder="Clave secreta" autocomplete="current-password">
+      <button class="auth-btn" id="btn-login">⚔ INICIAR SESIÓN</button>
+      <div class="auth-switch">¿No tienes cuenta? <a id="show-register">Registrarse</a></div>
+      <div class="auth-error" id="login-error"></div>
+    </div>
+    <div id="auth-register" style="display:none">
+      <label class="auth-label">USUARIO (3-20 caracteres)</label>
+      <input class="auth-input" id="reg-user" type="text" placeholder="Elige tu nombre" autocomplete="username" maxlength="20">
+      <label class="auth-label">CONTRASEÑA (mín. 6 caracteres)</label>
+      <input class="auth-input" id="reg-pass" type="password" placeholder="Clave secreta" autocomplete="new-password">
+      <label class="auth-label">CONFIRMAR CONTRASEÑA</label>
+      <input class="auth-input" id="reg-pass2" type="password" placeholder="Repite la clave" autocomplete="new-password">
+      <button class="auth-btn" id="btn-register">✦ CREAR CUENTA</button>
+      <div class="auth-switch">¿Ya tienes cuenta? <a id="show-login">Iniciar Sesión</a></div>
+      <div class="auth-error" id="reg-error"></div>
+    </div>
+    <div style="text-align:center;margin-top:16px;font-size:6px;color:#334455">
+      🔒 Cifrado PBKDF2 + AES-256-GCM · Datos locales seguros
+    </div>
+  </div>
+</div>
+
+<!-- User bar -->
+<div class="auth-user-bar hidden" id="user-bar">
+  <span class="auth-lock-icon">🔒</span> <span id="user-display"></span>
+  <button id="btn-save">💾 GUARDAR</button>
+  <button id="btn-logout">SALIR</button>
+</div>
 <script>
 // ============================================================
 //  FINAL FANTASY CATALONIA - Demo
 //  Un juego RPG estilo Final Fantasy IV
 //  Creado con HTML5 Canvas y JavaScript puro
 // ============================================================
+
+// ============== SISTEMA DE AUTENTICACIÓN CIFRADO ==============
+const AUTH = {
+  currentUser: null,
+  db: null,
+};
+
+// --- IndexedDB ---
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ffc_auth_db', 2);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('users')) db.createObjectStore('users', { keyPath: 'username' });
+      if (!db.objectStoreNames.contains('saves')) db.createObjectStore('saves', { keyPath: 'username' });
+    };
+    req.onsuccess = () => { AUTH.db = req.result; resolve(req.result); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = AUTH.db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbPut(store, data) {
+  return new Promise((resolve, reject) => {
+    const tx = AUTH.db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(data);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// --- Crypto: PBKDF2 + AES-256-GCM ---
+function salt16() { return crypto.getRandomValues(new Uint8Array(16)); }
+function u8ToB64(u8) { return btoa(String.fromCharCode.apply(null, u8)); }
+function b64ToU8(b64) { return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
+
+async function pbkdf2Hash(password, salt) {
+  const enc = new TextEncoder();
+  const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' }, km, 256);
+  return u8ToB64(new Uint8Array(bits));
+}
+
+async function deriveAESKey(password, salt) {
+  const enc = new TextEncoder();
+  const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' }, km, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
+async function encryptData(plainObj, password, salt) {
+  const key = await deriveAESKey(password, salt);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(plainObj)));
+  return { iv: u8ToB64(iv), ct: u8ToB64(new Uint8Array(ct)) };
+}
+
+async function decryptData(encObj, password, salt) {
+  const key = await deriveAESKey(password, salt);
+  const iv = b64ToU8(encObj.iv);
+  const ct = b64ToU8(encObj.ct);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+// --- Registro ---
+async function authRegister(username, password) {
+  if (!username || username.length < 3) throw new Error('Usuario: mín. 3 caracteres');
+  if (!password || password.length < 6) throw new Error('Contraseña: mín. 6 caracteres');
+  const existing = await dbGet('users', username);
+  if (existing) throw new Error('El usuario ya existe');
+  const salt = salt16();
+  const hash = await pbkdf2Hash(password, salt);
+  await dbPut('users', { username, salt: u8ToB64(salt), hash });
+  return true;
+}
+
+// --- Login ---
+async function authLogin(username, password) {
+  const user = await dbGet('users', username);
+  if (!user) throw new Error('Usuario no encontrado');
+  const salt = b64ToU8(user.salt);
+  const hash = await pbkdf2Hash(password, salt);
+  if (hash !== user.hash) throw new Error('Contraseña incorrecta');
+  AUTH.currentUser = { username, password, salt };
+  return true;
+}
+
+// --- Guardar partida (cifrada) ---
+async function saveGame() {
+  if (!AUTH.currentUser) return;
+  const saveData = {
+    party: game.party, items: game.items, gil: game.gil,
+    flags: game.flags, currentMap: game.currentMap,
+    playerX: game.player.x, playerY: game.player.y,
+    playerDir: game.player.dir, stepCount: game.player.stepCount,
+    timestamp: Date.now(),
+  };
+  const salt = AUTH.currentUser.salt;
+  const encrypted = await encryptData(saveData, AUTH.currentUser.password, salt);
+  await dbPut('saves', { username: AUTH.currentUser.username, encrypted });
+}
+
+// --- Cargar partida (descifrada) ---
+async function loadGame() {
+  if (!AUTH.currentUser) return null;
+  const save = await dbGet('saves', AUTH.currentUser.username);
+  if (!save || !save.encrypted) return null;
+  try {
+    const data = await decryptData(save.encrypted, AUTH.currentUser.password, AUTH.currentUser.salt);
+    return data;
+  } catch (e) {
+    console.warn('Error descifrando partida:', e);
+    return null;
+  }
+}
+
+function applyLoadedGame(data) {
+  if (!data) return false;
+  game.party = data.party;
+  game.items = data.items;
+  game.gil = data.gil;
+  game.flags = data.flags;
+  game.currentMap = data.currentMap;
+  game.player.x = data.playerX;
+  game.player.y = data.playerY;
+  game.player.dir = data.playerDir;
+  game.player.stepCount = data.stepCount || 0;
+  // Re-link skills from SKILLS object
+  game.party.forEach(p => {
+    const skillMap = { 'javier': [SKILLS.golpeFuerte, SKILLS.gritoGuerra], 'marina': [SKILLS.fuego, SKILLS.hielo, SKILLS.cura], 'pau': [SKILLS.punoSagrado, SKILLS.curaMayor, SKILLS.proteger] };
+    if (skillMap[p.id]) p.skills = skillMap[p.id];
+    // Unlock Rayo for high-level Marina
+    if (p.id === 'marina' && p.level >= 6 && !p.skills.find(s => s.name === 'Rayo')) p.skills.push(SKILLS.rayo);
+  });
+  return true;
+}
+
+// --- Auto-save cada 60 segundos ---
+let autoSaveInterval = null;
+function startAutoSave() {
+  if (autoSaveInterval) clearInterval(autoSaveInterval);
+  autoSaveInterval = setInterval(() => {
+    if (AUTH.currentUser && game.state === 'explore') saveGame().catch(() => {});
+  }, 60000);
+}
+
+// --- UI de Auth ---
+function initAuthUI() {
+  document.getElementById('show-register').onclick = () => {
+    document.getElementById('auth-login').style.display = 'none';
+    document.getElementById('auth-register').style.display = 'block';
+    document.getElementById('reg-error').textContent = '';
+  };
+  document.getElementById('show-login').onclick = () => {
+    document.getElementById('auth-register').style.display = 'none';
+    document.getElementById('auth-login').style.display = 'block';
+    document.getElementById('login-error').textContent = '';
+  };
+  document.getElementById('btn-register').onclick = async () => {
+    const u = document.getElementById('reg-user').value.trim();
+    const p = document.getElementById('reg-pass').value;
+    const p2 = document.getElementById('reg-pass2').value;
+    const errEl = document.getElementById('reg-error');
+    if (p !== p2) { errEl.textContent = 'Las contraseñas no coinciden'; return; }
+    try {
+      errEl.textContent = 'Cifrando...'; errEl.className = 'auth-success';
+      await authRegister(u, p);
+      errEl.textContent = '¡Cuenta creada! Iniciando sesión...';
+      await authLogin(u, p);
+      onAuthSuccess();
+    } catch (e) { errEl.textContent = e.message; errEl.className = 'auth-error'; }
+  };
+  document.getElementById('btn-login').onclick = async () => {
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    const errEl = document.getElementById('login-error');
+    try {
+      errEl.textContent = 'Verificando...'; errEl.className = 'auth-success';
+      await authLogin(u, p);
+      onAuthSuccess();
+    } catch (e) { errEl.textContent = e.message; errEl.className = 'auth-error'; }
+  };
+  document.getElementById('btn-save').onclick = async () => {
+    const btn = document.getElementById('btn-save');
+    btn.textContent = 'Guardando...';
+    await saveGame().catch(() => {});
+    btn.textContent = '\u2714 Guardado!';
+    setTimeout(() => btn.textContent = '\uD83D\uDCBE GUARDAR', 2000);
+  };
+  document.getElementById('btn-logout').onclick = () => {
+    AUTH.currentUser = null;
+    if (autoSaveInterval) clearInterval(autoSaveInterval);
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    document.getElementById('user-bar').classList.add('hidden');
+    game.state = 'title'; game.flags = {}; game.tick = 0; game.musicStarted = false;
+    stopMusic();
+  };
+  // Enter key support
+  ['login-user', 'login-pass'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-login').click(); });
+  });
+  ['reg-user', 'reg-pass', 'reg-pass2'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-register').click(); });
+  });
+}
+
+async function onAuthSuccess() {
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('user-bar').classList.remove('hidden');
+  document.getElementById('user-display').textContent = AUTH.currentUser.username;
+  startAutoSave();
+  // Try to load saved game
+  const saved = await loadGame();
+  if (saved) {
+    game._pendingSave = saved; // Will be offered at title screen
+  }
+}
+
+// ============== FIN AUTH ==============
 
 // --- CONFIGURACIÓN GLOBAL ---
 const TILE = 16;
@@ -355,21 +686,41 @@ function clearJustPressed() {
 }
 
 // --- UTILIDADES ---
+let fontReady = false;
+document.fonts.ready.then(() => { fontReady = true; });
+
 function drawText(ctx, text, x, y, color = PAL.white, size = 8) {
-  ctx.fillStyle = color;
-  ctx.font = size + 'px monospace';
+  const ff = fontReady ? '"Press Start 2P",' : '';
+  ctx.font = size + 'px ' + ff + ' monospace';
   ctx.textBaseline = 'top';
+  // Drop shadow for readability
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillText(text, x + 1, y + 1);
+  // Main text
+  ctx.fillStyle = color;
   ctx.fillText(text, x, y);
 }
 
-function drawBox(ctx, x, y, w, h, fill = '#111133', border = '#4466AA') {
+function drawBox(ctx, x, y, w, h, fill = '#0A0A30', border = '#4466AA') {
+  // FF4-style box with double border and gradient feel
   ctx.fillStyle = fill;
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = border;
+  // Outer border
+  ctx.strokeStyle = '#222244';
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  ctx.strokeStyle = '#8899CC';
+  // Main border
+  ctx.strokeStyle = border;
   ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+  // Inner highlight
+  ctx.strokeStyle = '#8899CC';
+  ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5);
+  // Corner accents
+  ctx.fillStyle = '#AABBDD';
+  ctx.fillRect(x + 2, y + 2, 1, 1);
+  ctx.fillRect(x + w - 3, y + 2, 1, 1);
+  ctx.fillRect(x + 2, y + h - 3, 1, 1);
+  ctx.fillRect(x + w - 3, y + h - 3, 1, 1);
 }
 
 function wrapText(text, maxChars) {
@@ -417,49 +768,82 @@ function makeCharSprite(skin, hairColor, hasBeard, bodyColor, pantsColor, isBald
     // 4 frames: down, left, right, up
     for (let f = 0; f < 4; f++) {
       const oy = f * 16;
-      const walkOffset = 0;
-      // Cabeza
+      // Cabeza con mejor proporción
       if (isBald) {
         rect(ctx, 5, oy + 1, 6, 6, skin);
-        // Brillo calva
+        // Brillo calva (specular)
         px(ctx, 6, oy + 1, '#FFE8CC');
         px(ctx, 7, oy + 1, '#FFE8CC');
+        px(ctx, 8, oy + 2, '#FFD8BB');
       } else {
         rect(ctx, 5, oy + 0, 6, 2, hairColor);
         rect(ctx, 5, oy + 2, 6, 5, skin);
         px(ctx, 4, oy + 1, hairColor);
         px(ctx, 11, oy + 1, hairColor);
+        // Hair depth
+        px(ctx, 5, oy, '#000000'); px(ctx, 10, oy, '#000000');
       }
-      // Ojos
+      // Skin shading
+      px(ctx, 10, oy + 4, '#D4A870');
+      // Ojos y cara
       if (f === 0) { // Abajo (mirando al jugador)
-        px(ctx, 6, oy + 3, PAL.black);
-        px(ctx, 9, oy + 3, PAL.black);
+        // Eye whites
+        px(ctx, 6, oy + 3, '#FFFFFF');
+        px(ctx, 9, oy + 3, '#FFFFFF');
+        // Pupils
+        px(ctx, 6, oy + 4, PAL.black);
+        px(ctx, 9, oy + 4, PAL.black);
+        // Nose
+        px(ctx, 8, oy + 4, '#D4A870');
+        // Mouth
+        px(ctx, 7, oy + 5, '#CC8866');
+        px(ctx, 8, oy + 5, '#CC8866');
         if (hasBeard) {
           rect(ctx, 6, oy + 5, 4, 2, PAL.beard);
           px(ctx, 5, oy + 5, PAL.beard);
           px(ctx, 10, oy + 5, PAL.beard);
+          px(ctx, 5, oy + 6, PAL.beard);
+          px(ctx, 10, oy + 6, PAL.beard);
         }
       } else if (f === 1) { // Izquierda
-        px(ctx, 5, oy + 3, PAL.black);
+        px(ctx, 5, oy + 3, '#FFFFFF');
+        px(ctx, 5, oy + 4, PAL.black);
+        px(ctx, 6, oy + 5, '#CC8866');
       } else if (f === 2) { // Derecha
-        px(ctx, 10, oy + 3, PAL.black);
+        px(ctx, 10, oy + 3, '#FFFFFF');
+        px(ctx, 10, oy + 4, PAL.black);
+        px(ctx, 9, oy + 5, '#CC8866');
       } else { // Arriba
-        if (!isBald) rect(ctx, 5, oy + 0, 6, 3, hairColor);
+        if (!isBald) rect(ctx, 5, oy + 0, 6, 4, hairColor);
         else {
           rect(ctx, 5, oy + 1, 6, 5, skin);
           px(ctx, 6, oy + 1, '#FFE8CC');
+          px(ctx, 7, oy + 2, '#FFD8BB');
         }
       }
-      // Cuerpo
+      // Cuerpo con sombreado
       rect(ctx, 4, oy + 7, 8, 5, bodyColor);
-      // Cinturón
+      // Body shading (left side shadow)
+      px(ctx, 4, oy + 8, '#00000022');
+      px(ctx, 4, oy + 9, '#00000022');
+      // Arms
+      rect(ctx, 3, oy + 7, 1, 4, bodyColor);
+      rect(ctx, 12, oy + 7, 1, 4, bodyColor);
+      // Cinturón con hebilla
       rect(ctx, 4, oy + 11, 8, 1, PAL.brown);
+      px(ctx, 8, oy + 11, PAL.gold);
       // Piernas
       rect(ctx, 5, oy + 12, 3, 3, pantsColor);
       rect(ctx, 9, oy + 12, 3, 3, pantsColor);
-      // Botas
+      // Piernas shadow
+      px(ctx, 5, oy + 13, '#00000015');
+      px(ctx, 9, oy + 13, '#00000015');
+      // Botas con detalle
       rect(ctx, 5, oy + 14, 3, 2, PAL.darkBrown);
       rect(ctx, 9, oy + 14, 3, 2, PAL.darkBrown);
+      // Boot highlight
+      px(ctx, 6, oy + 14, '#6B4A22');
+      px(ctx, 10, oy + 14, '#6B4A22');
       // Extra (armas, detalles)
       if (extraFn) extraFn(ctx, f, oy);
     }
@@ -501,156 +885,245 @@ const sprOldMan = makeCharSprite(PAL.skin, PAL.white, true, PAL.darkGray, PAL.da
 const tileSprites = {};
 
 function generateTiles() {
-  // Hierba
+  // === HIERBA (detallada con dithering) ===
   tileSprites.grass = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.grass);
-    for (let i = 0; i < 8; i++) {
-      px(ctx, Math.floor(Math.random() * 16), Math.floor(Math.random() * 16), PAL.grassDark);
+    rect(ctx, 0, 0, 16, 16, '#3A8840');
+    // Dithering pattern
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 2) px(ctx, x, y, '#348038');
+    // Grass blades
+    for (let i = 0; i < 6; i++) {
+      const gx = (i*3+1)%15, gy = (i*5+2)%14;
+      px(ctx, gx, gy, '#4AA050'); px(ctx, gx, gy+1, '#2A6830');
     }
+    px(ctx, 4, 8, '#56B860'); px(ctx, 11, 3, '#56B860');
   });
-  // Hierba 2 (variación)
   tileSprites.grass2 = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.grass);
-    for (let i = 0; i < 5; i++) {
-      px(ctx, Math.floor(Math.random() * 16), Math.floor(Math.random() * 16), PAL.grassDark);
-    }
-    px(ctx, 4, 8, '#77CC77'); px(ctx, 12, 4, '#77CC77');
+    rect(ctx, 0, 0, 16, 16, '#3A8840');
+    for (let y = 0; y < 16; y += 2) for (let x = ((y/2)+1)%2; x < 16; x += 2) px(ctx, x, y, '#2E7234');
+    // Flowers on grass
+    px(ctx, 4, 5, '#FF6688'); px(ctx, 5, 5, '#FF6688'); px(ctx, 4, 4, '#FFAACC');
+    px(ctx, 11, 9, '#FFEE44'); px(ctx, 12, 9, '#FFEE44'); px(ctx, 11, 8, '#FFFFAA');
+    px(ctx, 7, 12, '#56B860');
   });
-  // Camino
+
+  // === CAMINO (texturizado) ===
   tileSprites.path = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.path);
-    for (let i = 0; i < 4; i++) {
-      px(ctx, Math.floor(Math.random() * 16), Math.floor(Math.random() * 16), PAL.pathDark);
-    }
+    rect(ctx, 0, 0, 16, 16, '#C4A060');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 2) px(ctx, x, y, '#B89050');
+    // Stones
+    px(ctx, 3, 6, '#A08040'); px(ctx, 10, 3, '#A08040'); px(ctx, 7, 12, '#A08040');
+    px(ctx, 13, 9, '#D4B070'); px(ctx, 1, 13, '#D4B070');
   });
-  // Agua
+
+  // === AGUA (con reflejos animados) ===
   tileSprites.water = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.water);
-    rect(ctx, 2, 4, 4, 1, PAL.waterDark);
-    rect(ctx, 10, 10, 4, 1, PAL.waterDark);
-    rect(ctx, 6, 14, 3, 1, '#66AADD');
+    rect(ctx, 0, 0, 16, 16, '#2266AA');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 3) px(ctx, x, y, '#1A5588');
+    // Wave highlights
+    rect(ctx, 2, 4, 5, 1, '#44AADD'); rect(ctx, 10, 10, 4, 1, '#44AADD');
+    rect(ctx, 6, 14, 3, 1, '#66BBEE');
+    px(ctx, 1, 8, '#3388BB'); px(ctx, 13, 2, '#3388BB');
   });
-  // Muro de piedra
+
+  // === MURO PIEDRA (con grietas y textura) ===
   tileSprites.stoneWall = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.stone);
-    ctx.strokeStyle = PAL.stoneDark;
-    ctx.lineWidth = 1;
-    // Patrón de ladrillos
-    for (let y = 0; y < 16; y += 4) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(16, y); ctx.stroke();
-    }
-    for (let x = 0; x < 16; x += 8) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 4); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 4, 4); ctx.lineTo(x + 4, 8); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x, 12); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 4, 12); ctx.lineTo(x + 4, 16); ctx.stroke();
-    }
+    rect(ctx, 0, 0, 16, 16, '#888899');
+    // Mortar lines
+    ctx.fillStyle = '#666677';
+    for (let y = 0; y < 16; y += 4) { ctx.fillRect(0, y, 16, 1); }
+    for (let x = 0; x < 16; x += 8) { ctx.fillRect(x, 0, 1, 4); ctx.fillRect(x+4, 4, 1, 4); ctx.fillRect(x, 8, 1, 4); ctx.fillRect(x+4, 12, 1, 4); }
+    // Highlights & shadows
+    for (let y = 1; y < 16; y += 4) { px(ctx, 1, y, '#9999AA'); px(ctx, 5, y+4>15?y:y+4, '#7777888'); }
+    px(ctx, 3, 6, '#777788'); px(ctx, 12, 2, '#999AAA');
   });
-  // Árbol
+
+  // === ÁRBOL (mucho más detallado) ===
   tileSprites.tree = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.grass);
-    // Tronco
-    rect(ctx, 6, 10, 4, 6, PAL.brown);
-    // Copa
-    rect(ctx, 2, 2, 12, 9, PAL.darkGreen);
-    rect(ctx, 4, 0, 8, 3, PAL.darkGreen);
-    // Detalles
-    px(ctx, 5, 4, '#2A5522'); px(ctx, 10, 6, '#2A5522');
-    px(ctx, 7, 3, '#55AA55');
+    rect(ctx, 0, 0, 16, 16, '#3A8840'); // Base grass
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 2) px(ctx, x, y, '#348038');
+    // Trunk with depth
+    rect(ctx, 6, 10, 4, 6, '#8B6914');
+    rect(ctx, 7, 10, 2, 6, '#A07828'); // Trunk highlight
+    px(ctx, 6, 11, '#705010'); // Shadow
+    // Canopy with shading layers
+    rect(ctx, 2, 2, 12, 9, '#1A5522');
+    rect(ctx, 3, 1, 10, 2, '#1A5522');
+    rect(ctx, 4, 0, 8, 2, '#1A5522');
+    // Light areas
+    rect(ctx, 4, 3, 4, 3, '#2A7733');
+    rect(ctx, 8, 2, 3, 2, '#2A7733');
+    px(ctx, 5, 2, '#3A8844'); px(ctx, 9, 4, '#3A8844');
+    // Dark areas
+    rect(ctx, 3, 7, 3, 3, '#114418');
+    rect(ctx, 10, 6, 3, 3, '#114418');
+    px(ctx, 7, 9, '#114418');
   });
-  // Pared de casa
+
+  // === PARED CASA (con textura madera) ===
   tileSprites.houseWall = createSprite(16, 16, (ctx) => {
     rect(ctx, 0, 0, 16, 16, '#D4B896');
+    // Wood planks horizontal lines
+    for (let y = 0; y < 16; y += 4) { ctx.fillStyle = '#C4A886'; ctx.fillRect(0, y, 16, 1); }
+    // Slight variation
+    px(ctx, 3, 2, '#CCBB90'); px(ctx, 11, 6, '#CCBB90');
+    px(ctx, 7, 10, '#BCA878'); px(ctx, 14, 14, '#BCA878');
     ctx.strokeStyle = '#B8A080'; ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, 15, 15);
   });
-  // Tejado
+
+  // === TEJADO (con tejas detalladas) ===
   tileSprites.roof = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.roofRed);
+    rect(ctx, 0, 0, 16, 16, '#AA3333');
+    // Tile rows
     for (let y = 0; y < 16; y += 4) {
-      rect(ctx, 0, y, 16, 1, '#993333');
-    }
-  });
-  // Puerta
-  tileSprites.door = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, '#D4B896');
-    rect(ctx, 3, 4, 10, 12, PAL.darkBrown);
-    rect(ctx, 4, 5, 8, 10, PAL.brown);
-    px(ctx, 10, 10, PAL.gold); // Pomo
-  });
-  // Suelo interior
-  tileSprites.floor = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, '#C4A870');
-    for (let x = 0; x < 16; x += 8) {
-      for (let y = 0; y < 16; y += 8) {
-        ctx.strokeStyle = '#B09860'; ctx.lineWidth = 1;
-        ctx.strokeRect(x + 0.5, y + 0.5, 7, 7);
+      ctx.fillStyle = '#882222'; ctx.fillRect(0, y, 16, 1);
+      // Individual tiles with highlight
+      for (let x = (y/4)%2 * 4; x < 16; x += 8) {
+        ctx.fillStyle = '#CC4444'; ctx.fillRect(x+1, y+1, 3, 1);
       }
     }
+    px(ctx, 2, 5, '#993333'); px(ctx, 10, 9, '#BB3838');
   });
-  // Suelo cueva
+
+  // === PUERTA (detallada con marco) ===
+  tileSprites.door = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#D4B896');
+    // Door frame
+    rect(ctx, 2, 3, 12, 13, '#6B4422');
+    // Door panels
+    rect(ctx, 3, 4, 10, 11, '#8B6B3A');
+    rect(ctx, 4, 5, 3, 4, '#7B5B2A'); rect(ctx, 9, 5, 3, 4, '#7B5B2A');
+    rect(ctx, 4, 10, 3, 4, '#7B5B2A'); rect(ctx, 9, 10, 3, 4, '#7B5B2A');
+    // Door knob
+    px(ctx, 10, 10, '#FFD700'); px(ctx, 11, 10, '#CCA800');
+    // Cross beam
+    rect(ctx, 3, 9, 10, 1, '#6B4422');
+    rect(ctx, 7, 4, 2, 11, '#6B4422');
+  });
+
+  // === SUELO INTERIOR ===
+  tileSprites.floor = createSprite(16, 16, (ctx) => {
+    rect(ctx, 0, 0, 16, 16, '#C4A870');
+    for (let x = 0; x < 16; x += 8) for (let y = 0; y < 16; y += 8) {
+      ctx.strokeStyle = '#B09860'; ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, 7, 7);
+      px(ctx, x+2, y+2, '#CCBB88'); px(ctx, x+5, y+5, '#AA9058');
+    }
+  });
+
+  // === SUELO CUEVA (rocoso) ===
   tileSprites.caveFloor = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.caveFloor);
-    for (let i = 0; i < 4; i++) {
-      px(ctx, Math.floor(Math.random() * 16), Math.floor(Math.random() * 16), PAL.caveDark);
-    }
+    rect(ctx, 0, 0, 16, 16, '#3A3A4A');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 3) px(ctx, x, y, '#2E2E3E');
+    // Pebbles
+    px(ctx, 4, 7, '#4A4A5A'); px(ctx, 11, 3, '#4A4A5A'); px(ctx, 8, 13, '#323244');
+    px(ctx, 2, 11, '#50506A');
   });
-  // Pared cueva
+
+  // === PARED CUEVA (rugosa) ===
   tileSprites.caveWall = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.caveWall);
-    for (let i = 0; i < 6; i++) {
-      px(ctx, Math.floor(Math.random() * 16), Math.floor(Math.random() * 16), PAL.caveDark);
+    rect(ctx, 0, 0, 16, 16, '#2A2A3A');
+    // Rock texture
+    for (let y = 0; y < 16; y += 3) for (let x = (y/3)%2*2; x < 16; x += 4) {
+      ctx.fillStyle = '#222233'; ctx.fillRect(x, y, 2, 2);
     }
-    px(ctx, 3, 5, PAL.caveFloor); px(ctx, 12, 10, PAL.caveFloor);
+    // Highlights
+    px(ctx, 3, 5, '#3A3A50'); px(ctx, 12, 10, '#3A3A50'); px(ctx, 8, 2, '#3A3A50');
+    // Dark crevices
+    px(ctx, 6, 8, '#1A1A28'); px(ctx, 14, 4, '#1A1A28'); px(ctx, 1, 13, '#1A1A28');
   });
-  // Ventana
+
+  // === VENTANA ===
   tileSprites.window = createSprite(16, 16, (ctx) => {
     rect(ctx, 0, 0, 16, 16, '#D4B896');
-    rect(ctx, 3, 3, 10, 10, PAL.blue);
-    rect(ctx, 7, 3, 2, 10, '#D4B896');
-    rect(ctx, 3, 7, 10, 2, '#D4B896');
+    // Window frame
+    rect(ctx, 2, 2, 12, 12, '#6B4422');
+    // Glass panes
+    rect(ctx, 3, 3, 4, 4, '#4488CC'); rect(ctx, 9, 3, 4, 4, '#4488CC');
+    rect(ctx, 3, 9, 4, 4, '#3377BB'); rect(ctx, 9, 9, 4, 4, '#3377BB');
+    // Cross frame
+    rect(ctx, 7, 2, 2, 12, '#7B5B32');
+    rect(ctx, 2, 7, 12, 2, '#7B5B32');
+    // Light reflection
+    px(ctx, 4, 4, '#88CCFF'); px(ctx, 10, 4, '#88CCFF');
   });
-  // Flores
+
+  // === FLORES ===
   tileSprites.flowers = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.grass);
-    px(ctx, 3, 5, PAL.red); px(ctx, 4, 5, PAL.red);
-    px(ctx, 8, 3, PAL.yellow); px(ctx, 9, 3, PAL.yellow);
-    px(ctx, 12, 8, PAL.magenta); px(ctx, 13, 8, PAL.magenta);
-    px(ctx, 5, 11, PAL.cyan); px(ctx, 6, 11, PAL.cyan);
+    rect(ctx, 0, 0, 16, 16, '#3A8840');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 2) px(ctx, x, y, '#348038');
+    // Stems
+    px(ctx, 3, 6, '#2A6830'); px(ctx, 9, 4, '#2A6830'); px(ctx, 13, 9, '#2A6830'); px(ctx, 6, 12, '#2A6830');
+    // Flowers of various colors
+    px(ctx, 3, 4, '#FF4466'); px(ctx, 3, 5, '#FF4466'); px(ctx, 4, 4, '#FF6688'); px(ctx, 2, 5, '#FF4466');
+    px(ctx, 9, 2, '#FFDD22'); px(ctx, 9, 3, '#FFDD22'); px(ctx, 10, 3, '#FFEE66');
+    px(ctx, 13, 7, '#CC44CC'); px(ctx, 13, 8, '#CC44CC'); px(ctx, 14, 8, '#DD66DD');
+    px(ctx, 6, 10, '#44CCCC'); px(ctx, 6, 11, '#44CCCC'); px(ctx, 7, 11, '#66DDDD');
   });
-  // Escaleras abajo
+
+  // === ESCALERAS ===
   tileSprites.stairsDown = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.caveFloor);
-    for (let i = 0; i < 5; i++) {
-      rect(ctx, 2 + i, 2 + i * 2, 12 - i * 2, 2, PAL.caveDark);
+    rect(ctx, 0, 0, 16, 16, '#3A3A4A');
+    for (let i = 0; i < 6; i++) {
+      const shade = 60 - i * 8;
+      ctx.fillStyle = `rgb(${shade},${shade},${shade+10})`;
+      rect(ctx, 2 + i, 1 + i * 2, 12 - i * 2, 2);
+      // Step highlight
+      ctx.fillStyle = `rgb(${shade+20},${shade+20},${shade+30})`;
+      px(ctx, 2 + i, 1 + i * 2, ctx.fillStyle);
     }
   });
-  // Cofre
+
+  // === COFRE ===
   tileSprites.chest = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.caveFloor);
-    rect(ctx, 3, 6, 10, 8, PAL.brown);
-    rect(ctx, 3, 6, 10, 3, PAL.darkBrown);
-    rect(ctx, 7, 8, 2, 4, PAL.gold);
+    rect(ctx, 0, 0, 16, 16, '#3A3A4A');
+    // Chest body
+    rect(ctx, 3, 7, 10, 7, '#8B6914');
+    // Lid
+    rect(ctx, 3, 5, 10, 3, '#A07828');
+    rect(ctx, 2, 5, 12, 1, '#705010');
+    // Lock
+    rect(ctx, 7, 8, 2, 3, '#FFD700');
+    px(ctx, 7, 9, '#CCA800');
+    // Shadow
+    rect(ctx, 4, 13, 8, 1, '#2A2A3A');
+    // Highlight
+    px(ctx, 4, 6, '#BB8828');
   });
-  // Bandera señal
+
+  // === CARTEL ===
   tileSprites.sign = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.path);
-    rect(ctx, 7, 6, 2, 10, PAL.brown);
-    rect(ctx, 3, 2, 10, 6, PAL.wood);
-    ctx.strokeStyle = PAL.darkBrown; ctx.lineWidth = 1;
-    ctx.strokeRect(3.5, 2.5, 9, 5);
+    rect(ctx, 0, 0, 16, 16, '#C4A060');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 2) px(ctx, x, y, '#B89050');
+    // Post
+    rect(ctx, 7, 7, 2, 9, '#6B4422');
+    // Sign board
+    rect(ctx, 2, 1, 12, 7, '#C4A060');
+    ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 1;
+    ctx.strokeRect(2.5, 1.5, 11, 6);
+    // Text lines on sign
+    rect(ctx, 4, 3, 8, 1, '#6B4422');
+    rect(ctx, 5, 5, 6, 1, '#6B4422');
   });
-  // Oscuridad (borde mapa)
+
+  // === OSCURIDAD ===
   tileSprites.void = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.black);
+    rect(ctx, 0, 0, 16, 16, '#000000');
   });
-  // Cristal (boss room)
+
+  // === CRISTAL (brillante) ===
   tileSprites.crystal = createSprite(16, 16, (ctx) => {
-    rect(ctx, 0, 0, 16, 16, PAL.caveFloor);
-    rect(ctx, 5, 2, 6, 12, '#8844CC');
-    rect(ctx, 6, 1, 4, 1, '#AA66EE');
-    rect(ctx, 7, 0, 2, 1, '#CC88FF');
-    px(ctx, 7, 4, '#CC88FF'); px(ctx, 8, 6, '#DDAAFF');
+    rect(ctx, 0, 0, 16, 16, '#3A3A4A');
+    for (let y = 0; y < 16; y += 2) for (let x = (y/2)%2; x < 16; x += 3) px(ctx, x, y, '#2E2E3E');
+    // Crystal shape
+    rect(ctx, 6, 3, 4, 10, '#8844CC');
+    rect(ctx, 5, 4, 6, 8, '#7733BB');
+    rect(ctx, 7, 2, 2, 1, '#AA66EE');
+    rect(ctx, 7, 1, 2, 1, '#CC88FF');
+    // Shine
+    px(ctx, 7, 4, '#CC99FF'); px(ctx, 8, 5, '#DDBBFF'); px(ctx, 6, 7, '#9955DD');
+    // Glow on floor
+    px(ctx, 5, 13, '#6633AA'); px(ctx, 10, 13, '#6633AA');
   });
 }
 
@@ -1845,19 +2318,67 @@ function drawBattle() {
   const shakeX = b.shakeTimer > 0 ? Math.floor(Math.random() * 4 - 2) : 0;
   const shakeY = b.shakeTimer > 0 ? Math.floor(Math.random() * 4 - 2) : 0;
 
-  // Fondo
-  if (b.isBoss) {
-    vctx.fillStyle = '#1A0A2A';
-  } else if (game.currentMap === 'cave') {
-    vctx.fillStyle = '#1A1A2A';
-  } else {
-    vctx.fillStyle = '#0A1A0A';
+  // === RICH BATTLE BACKGROUND ===
+  const isCave = game.currentMap === 'cave';
+  const isBoss = b.isBoss;
+  // Gradient sky
+  for (let y = 0; y < 100; y++) {
+    const t = y / 100;
+    let r, g, bl;
+    if (isBoss) { r = Math.floor(30 + t * 20); g = Math.floor(5 + t * 10); bl = Math.floor(50 + t * 30); }
+    else if (isCave) { r = Math.floor(15 + t * 20); g = Math.floor(15 + t * 20); bl = Math.floor(30 + t * 25); }
+    else { r = Math.floor(5 + t * 15); g = Math.floor(15 + t * 30); bl = Math.floor(40 - t * 15); }
+    vctx.fillStyle = `rgb(${r},${g},${bl})`;
+    vctx.fillRect(0, y, VIRT_W, 1);
   }
-  vctx.fillRect(0, 0, VIRT_W, VIRT_H);
-
-  // Suelo de batalla
-  vctx.fillStyle = b.isBoss ? '#2A1A3A' : (game.currentMap === 'cave' ? '#2A2A3A' : '#1A3A1A');
-  vctx.fillRect(0, 100, VIRT_W, 40);
+  // Stars / cave stalactites
+  if (!isCave) {
+    for (let i = 0; i < 25; i++) {
+      const sx = ((73 * (i+1) * 7 + 11) % VIRT_W);
+      const sy = ((73 * (i+1) * 3 + 5) % 80);
+      const br = Math.sin(game.tick * 0.04 + i * 1.7) * 0.4 + 0.6;
+      vctx.fillStyle = `rgba(255,255,255,${br * 0.6})`;
+      vctx.fillRect(sx, sy, 1, 1);
+    }
+  } else {
+    vctx.fillStyle = '#1A1A28';
+    for (let i = 0; i < 8; i++) {
+      const sx = 15 + i * 32 + ((i * 7) % 10);
+      const h = 8 + (i * 5) % 12;
+      vctx.fillRect(sx, 0, 3, h);
+      vctx.fillRect(sx - 1, 0, 5, h - 3);
+    }
+  }
+  // Boss: swirling dark energy above
+  if (isBoss) {
+    const t = game.tick * 0.02;
+    for (let i = 0; i < 6; i++) {
+      const ox = Math.sin(t + i * 1.05) * 80 + 128;
+      const oy = Math.cos(t + i * 1.3) * 30 + 30;
+      vctx.fillStyle = `rgba(120,0,200,${0.15 + 0.1 * Math.sin(t + i)})`;
+      vctx.beginPath(); vctx.arc(ox, oy, 8 + Math.sin(t+i)*3, 0, Math.PI*2); vctx.fill();
+    }
+  }
+  // Ground plane with perspective stripes
+  const groundTop = 100;
+  for (let y = groundTop; y < 140; y++) {
+    const t = (y - groundTop) / 40;
+    let r, g, bl;
+    if (isBoss) { r = Math.floor(45 + t * 15); g = Math.floor(20 + t * 10); bl = Math.floor(60 + t * 15); }
+    else if (isCave) { r = Math.floor(35 + t * 15); g = Math.floor(35 + t * 12); bl = Math.floor(50 + t * 10); }
+    else { r = Math.floor(20 + t * 25); g = Math.floor(55 + t * 20); bl = Math.floor(15 + t * 10); }
+    vctx.fillStyle = `rgb(${r},${g},${bl})`;
+    vctx.fillRect(0, y, VIRT_W, 1);
+  }
+  // Ground detail lines (perspective)
+  vctx.fillStyle = isBoss ? '#3A2050' : isCave ? '#2E2E40' : '#1E4E1E';
+  for (let i = 0; i < 5; i++) {
+    const y = 102 + i * 8;
+    vctx.fillRect(0, y, VIRT_W, 1);
+  }
+  // Bottom fill
+  vctx.fillStyle = isBoss ? '#120820' : isCave ? '#18182A' : '#0A200A';
+  vctx.fillRect(0, 140, VIRT_W, VIRT_H - 140);
 
   // Flash
   if (b.flashTimer > 0) {
@@ -1996,226 +2517,469 @@ function drawBattle() {
 }
 
 function drawEnemySprite(x, y, enemy) {
-  // Sprite genérico basado en el tipo
   const c1 = enemy.color;
   const c2 = enemy.color2;
-  const size = enemy.isBoss ? 2 : 1;
+  const t = game.tick;
 
   if (enemy.name.includes('Slime')) {
-    // Slime: blob
+    // Slime: bouncy translucent blob with inner shine
+    const bounce = Math.abs(Math.sin(t * 0.08)) * 2;
+    const squish = Math.cos(t * 0.08);
+    const rx = 12 + squish, ry = 8 - squish;
+    // Shadow on ground
+    vctx.fillStyle = 'rgba(0,0,0,0.3)';
+    vctx.beginPath(); vctx.ellipse(x + 10, y + 27, 10, 3, 0, 0, Math.PI * 2); vctx.fill();
+    // Outer body
     vctx.fillStyle = c1;
-    vctx.beginPath();
-    vctx.ellipse(x + 10, y + 18, 12, 8, 0, 0, Math.PI * 2);
-    vctx.fill();
+    vctx.beginPath(); vctx.ellipse(x + 10, y + 18 - bounce, rx, ry, 0, 0, Math.PI * 2); vctx.fill();
+    // Inner darker area
     vctx.fillStyle = c2;
-    vctx.beginPath();
-    vctx.ellipse(x + 10, y + 22, 10, 4, 0, 0, Math.PI * 2);
-    vctx.fill();
-    // Ojos
+    vctx.beginPath(); vctx.ellipse(x + 10, y + 20 - bounce, rx - 2, ry - 2, 0, 0, Math.PI); vctx.fill();
+    // Highlight shine
+    vctx.fillStyle = 'rgba(255,255,255,0.35)';
+    vctx.beginPath(); vctx.ellipse(x + 7, y + 13 - bounce, 4, 3, -0.3, 0, Math.PI * 2); vctx.fill();
+    // Eyes (cute)
     vctx.fillStyle = PAL.white;
-    vctx.fillRect(x + 5, y + 15, 3, 3);
-    vctx.fillRect(x + 13, y + 15, 3, 3);
+    vctx.fillRect(x + 5, y + 15 - bounce, 4, 4);
+    vctx.fillRect(x + 12, y + 15 - bounce, 4, 4);
     vctx.fillStyle = PAL.black;
-    vctx.fillRect(x + 6, y + 16, 2, 2);
-    vctx.fillRect(x + 14, y + 16, 2, 2);
+    vctx.fillRect(x + 6, y + 16 - bounce, 2, 2);
+    vctx.fillRect(x + 14, y + 16 - bounce, 2, 2);
+    // Mouth
+    vctx.fillStyle = '#116611';
+    vctx.fillRect(x + 9, y + 20 - bounce, 3, 1);
+
   } else if (enemy.name.includes('Lobo')) {
-    // Lobo
+    // Wolf: detailed quadruped with fur texture
+    vctx.fillStyle = 'rgba(0,0,0,0.25)';
+    vctx.beginPath(); vctx.ellipse(x + 12, y + 28, 12, 3, 0, 0, Math.PI * 2); vctx.fill();
+    // Body
     vctx.fillStyle = c1;
-    vctx.fillRect(x + 2, y + 10, 20, 12);
-    vctx.fillRect(x + 18, y + 6, 8, 10);
-    // Patas
+    vctx.fillRect(x + 2, y + 10, 20, 13);
+    // Fur highlights
+    vctx.fillStyle = '#666666';
+    for (let i = 0; i < 5; i++) px(vctx, x + 4 + i * 4, y + 12, '#777777');
+    px(vctx, x + 8, y + 14, '#707070'); px(vctx, x + 15, y + 16, '#707070');
+    // Head
+    vctx.fillStyle = c1;
+    vctx.fillRect(x + 18, y + 5, 10, 11);
+    vctx.fillRect(x + 22, y + 8, 6, 8); // Snout
+    // Ears
     vctx.fillStyle = c2;
-    vctx.fillRect(x + 4, y + 22, 3, 6);
-    vctx.fillRect(x + 14, y + 22, 3, 6);
-    // Orejas
-    vctx.fillRect(x + 19, y + 3, 3, 4);
-    vctx.fillRect(x + 23, y + 3, 3, 4);
-    // Ojo
-    vctx.fillStyle = PAL.red;
-    vctx.fillRect(x + 22, y + 9, 2, 2);
-    // Cola
+    vctx.fillRect(x + 19, y + 2, 3, 4);
+    vctx.fillRect(x + 24, y + 2, 3, 4);
+    vctx.fillStyle = '#553333';
+    px(vctx, x + 20, y + 3, '#884444'); px(vctx, x + 25, y + 3, '#884444');
+    // Eye (red, menacing)
+    vctx.fillStyle = '#FF2222';
+    vctx.fillRect(x + 22, y + 8, 3, 2);
+    px(vctx, x + 23, y + 8, '#FF4444');
+    // Nose + teeth
+    px(vctx, x + 27, y + 10, PAL.black);
+    vctx.fillStyle = PAL.white;
+    px(vctx, x + 26, y + 13, PAL.white); px(vctx, x + 24, y + 13, PAL.white);
+    // Legs (animated)
+    const legAnim = Math.sin(t * 0.1) * 1;
+    vctx.fillStyle = c2;
+    vctx.fillRect(x + 4, y + 22, 3, 6 + legAnim);
+    vctx.fillRect(x + 10, y + 22, 3, 6 - legAnim);
+    vctx.fillRect(x + 16, y + 22, 3, 6 + legAnim);
+    // Paws
+    vctx.fillStyle = '#222222';
+    vctx.fillRect(x + 3, y + 27, 5, 2);
+    vctx.fillRect(x + 9, y + 27, 5, 2);
+    vctx.fillRect(x + 15, y + 27, 5, 2);
+    // Tail
     vctx.fillStyle = c1;
-    vctx.fillRect(x - 2, y + 10, 5, 3);
+    const tailY = Math.sin(t * 0.15) * 2;
+    vctx.fillRect(x - 2, y + 10 + tailY, 5, 2);
+    vctx.fillRect(x - 4, y + 9 + tailY, 3, 2);
+
   } else if (enemy.name.includes('Murci')) {
-    // Murciélago
+    // Bat: proper wing shape with animation
+    const wingAngle = Math.sin(t * 0.25) * 0.4;
+    // Shadow
+    vctx.fillStyle = 'rgba(0,0,0,0.2)';
+    vctx.beginPath(); vctx.ellipse(x + 10, y + 28, 8, 2, 0, 0, Math.PI * 2); vctx.fill();
+    // Body
     vctx.fillStyle = c1;
-    vctx.fillRect(x + 8, y + 12, 6, 6);
-    // Alas
-    const wingOffset = Math.sin(game.tick * 0.2) * 3;
-    vctx.fillRect(x - 2, y + 10 + wingOffset, 10, 4);
-    vctx.fillRect(x + 14, y + 10 - wingOffset, 10, 4);
-    // Ojos
-    vctx.fillStyle = PAL.red;
-    vctx.fillRect(x + 9, y + 13, 2, 2);
-    vctx.fillRect(x + 12, y + 13, 2, 2);
-  } else if (enemy.name.includes('Esqueleto')) {
-    // Esqueleto
+    vctx.fillRect(x + 7, y + 11, 8, 8);
+    // Head
+    vctx.fillRect(x + 8, y + 8, 6, 5);
+    // Ears (pointed)
+    vctx.fillRect(x + 8, y + 5, 2, 4);
+    vctx.fillRect(x + 12, y + 5, 2, 4);
+    // Eyes (glowing red)
+    vctx.fillStyle = '#FF0033';
+    vctx.fillRect(x + 9, y + 9, 2, 2);
+    vctx.fillRect(x + 12, y + 9, 2, 2);
+    // Mouth (fangs)
+    vctx.fillStyle = PAL.white;
+    px(vctx, x + 10, y + 12, PAL.white);
+    px(vctx, x + 12, y + 12, PAL.white);
+    // Wings (animated)
+    const wingUp = Math.sin(t * 0.25) * 4;
     vctx.fillStyle = c1;
-    // Cráneo
-    vctx.fillRect(x + 5, y + 2, 10, 10);
-    // Ojos
-    vctx.fillStyle = PAL.black;
-    vctx.fillRect(x + 7, y + 5, 3, 3);
-    vctx.fillRect(x + 11, y + 5, 3, 3);
-    // Cuerpo
-    vctx.fillStyle = c1;
-    vctx.fillRect(x + 7, y + 12, 6, 10);
-    // Brazos
-    vctx.fillRect(x + 2, y + 13, 5, 2);
-    vctx.fillRect(x + 13, y + 13, 5, 2);
-    // Piernas
-    vctx.fillRect(x + 7, y + 22, 2, 6);
-    vctx.fillRect(x + 11, y + 22, 2, 6);
-    // Espada
-    vctx.fillStyle = PAL.lightGray;
-    vctx.fillRect(x + 17, y + 8, 2, 12);
-  } else if (enemy.name.includes('Caballero')) {
-    // Caballero Oscuro
-    vctx.fillStyle = c1;
-    // Casco
-    vctx.fillRect(x + 4, y + 0, 12, 12);
-    vctx.fillStyle = PAL.red;
-    vctx.fillRect(x + 6, y + 6, 3, 2);
-    vctx.fillRect(x + 11, y + 6, 3, 2);
-    // Armadura
-    vctx.fillStyle = c2;
-    vctx.fillRect(x + 3, y + 12, 14, 12);
-    vctx.fillStyle = c1;
-    vctx.fillRect(x + 5, y + 14, 10, 8);
-    // Piernas
-    vctx.fillRect(x + 5, y + 24, 4, 4);
-    vctx.fillRect(x + 11, y + 24, 4, 4);
-    // Espada grande
-    vctx.fillStyle = '#6666AA';
-    vctx.fillRect(x + 18, y + 2, 2, 20);
-    vctx.fillRect(x + 15, y + 10, 8, 2);
-  } else if (enemy.name.includes('Señor')) {
-    // Boss: Señor de las Sombras
-    const pulse = Math.sin(game.tick * 0.05) * 3;
-    // Aura oscura
-    vctx.fillStyle = 'rgba(80, 0, 120, 0.3)';
+    // Left wing
     vctx.beginPath();
-    vctx.ellipse(x + 20, y + 30, 30 + pulse, 25 + pulse, 0, 0, Math.PI * 2);
+    vctx.moveTo(x + 7, y + 12);
+    vctx.lineTo(x - 4, y + 8 + wingUp);
+    vctx.lineTo(x - 6, y + 12 + wingUp);
+    vctx.lineTo(x - 2, y + 16 + wingUp * 0.5);
+    vctx.lineTo(x + 7, y + 18);
     vctx.fill();
-    // Cuerpo principal
-    vctx.fillStyle = c1;
-    vctx.fillRect(x + 5, y + 5, 30, 40);
-    // Capa
+    // Right wing
+    vctx.beginPath();
+    vctx.moveTo(x + 15, y + 12);
+    vctx.lineTo(x + 26, y + 8 + wingUp);
+    vctx.lineTo(x + 28, y + 12 + wingUp);
+    vctx.lineTo(x + 24, y + 16 + wingUp * 0.5);
+    vctx.lineTo(x + 15, y + 18);
+    vctx.fill();
+    // Wing bone lines
     vctx.fillStyle = c2;
-    vctx.fillRect(x + 0, y + 10, 40, 35);
-    vctx.fillRect(x + 2, y + 8, 36, 4);
-    // Cabeza/casco
-    vctx.fillStyle = '#330055';
-    vctx.fillRect(x + 10, y - 5, 20, 18);
-    // Corona oscura
-    vctx.fillStyle = '#660088';
-    vctx.fillRect(x + 8, y - 8, 4, 6);
-    vctx.fillRect(x + 15, y - 10, 4, 8);
-    vctx.fillRect(x + 22, y - 12, 4, 10);
-    vctx.fillRect(x + 28, y - 8, 4, 6);
-    // Ojos
-    vctx.fillStyle = '#FF0044';
-    vctx.fillRect(x + 14, y + 2, 4, 3);
-    vctx.fillRect(x + 22, y + 2, 4, 3);
-    // Manos con garras
-    vctx.fillStyle = '#440066';
-    vctx.fillRect(x - 5, y + 20, 8, 6);
-    vctx.fillRect(x + 37, y + 20, 8, 6);
-    // Garras
-    vctx.fillStyle = '#AA44DD';
+    vctx.fillRect(x + 3, y + 11 + wingUp * 0.5, 4, 1);
+    vctx.fillRect(x + 15, y + 11 + wingUp * 0.5, 4, 1);
+
+  } else if (enemy.name.includes('Esqueleto')) {
+    // Skeleton: detailed bone structure
+    vctx.fillStyle = 'rgba(0,0,0,0.2)';
+    vctx.beginPath(); vctx.ellipse(x + 10, y + 29, 8, 2, 0, 0, Math.PI * 2); vctx.fill();
+    // Skull
+    vctx.fillStyle = c1;
+    vctx.fillRect(x + 5, y + 1, 10, 10);
+    vctx.fillRect(x + 6, y, 8, 1);
+    // Eye sockets (dark)
+    vctx.fillStyle = PAL.black;
+    vctx.fillRect(x + 6, y + 3, 3, 3);
+    vctx.fillRect(x + 11, y + 3, 3, 3);
+    // Eye glow
+    vctx.fillStyle = '#FF4444';
+    px(vctx, x + 7, y + 4, '#FF4444');
+    px(vctx, x + 12, y + 4, '#FF4444');
+    // Nose
+    vctx.fillStyle = '#888877';
+    px(vctx, x + 9, y + 7, '#888877');
+    px(vctx, x + 10, y + 7, '#888877');
+    // Jaw
+    vctx.fillStyle = c2;
+    vctx.fillRect(x + 6, y + 9, 8, 3);
+    vctx.fillStyle = PAL.black;
+    vctx.fillRect(x + 7, y + 10, 6, 1);
+    // Spine + ribcage
+    vctx.fillStyle = c1;
+    vctx.fillRect(x + 9, y + 12, 2, 10);
+    // Ribs
     for (let i = 0; i < 3; i++) {
-      vctx.fillRect(x - 7 + i * 3, y + 24, 1, 4);
-      vctx.fillRect(x + 38 + i * 3, y + 24, 1, 4);
+      vctx.fillRect(x + 5, y + 13 + i * 3, 10, 1);
+      vctx.fillStyle = c2;
+      vctx.fillRect(x + 6, y + 14 + i * 3, 8, 1);
+      vctx.fillStyle = c1;
     }
-    // Energía oscura
-    const t = game.tick * 0.1;
-    for (let i = 0; i < 3; i++) {
-      vctx.fillStyle = 'rgba(160, 0, 255, 0.5)';
-      const ox = Math.sin(t + i * 2) * 20;
-      const oy = Math.cos(t + i * 2) * 15;
-      vctx.fillRect(x + 20 + ox, y + 20 + oy, 3, 3);
+    // Pelvis
+    vctx.fillRect(x + 6, y + 22, 8, 2);
+    // Arms
+    vctx.fillRect(x + 2, y + 13, 3, 2);
+    vctx.fillRect(x + 1, y + 15, 2, 6);
+    vctx.fillRect(x + 15, y + 13, 3, 2);
+    vctx.fillRect(x + 17, y + 15, 2, 6);
+    // Legs
+    vctx.fillRect(x + 6, y + 24, 2, 5);
+    vctx.fillRect(x + 12, y + 24, 2, 5);
+    // Sword
+    vctx.fillStyle = '#BBBBCC';
+    vctx.fillRect(x + 18, y + 7, 2, 14);
+    vctx.fillStyle = '#8888AA';
+    vctx.fillRect(x + 16, y + 10, 6, 2);
+    px(vctx, x + 19, y + 6, '#DDDDEE');
+
+  } else if (enemy.name.includes('Caballero')) {
+    // Dark Knight: imposing armored figure
+    vctx.fillStyle = 'rgba(0,0,0,0.3)';
+    vctx.beginPath(); vctx.ellipse(x + 10, y + 29, 10, 3, 0, 0, Math.PI * 2); vctx.fill();
+    // Helmet
+    vctx.fillStyle = c1;
+    vctx.fillRect(x + 4, y, 12, 12);
+    vctx.fillRect(x + 3, y + 2, 14, 8);
+    // Helmet crest
+    vctx.fillStyle = '#333366';
+    vctx.fillRect(x + 8, y - 3, 4, 4);
+    vctx.fillRect(x + 9, y - 5, 2, 3);
+    // Visor (glowing eyes)
+    vctx.fillStyle = '#330000';
+    vctx.fillRect(x + 5, y + 5, 10, 3);
+    vctx.fillStyle = '#FF2244';
+    vctx.fillRect(x + 6, y + 6, 3, 1);
+    vctx.fillRect(x + 11, y + 6, 3, 1);
+    // Armor body
+    vctx.fillStyle = c2;
+    vctx.fillRect(x + 2, y + 12, 16, 12);
+    vctx.fillStyle = c1;
+    vctx.fillRect(x + 4, y + 13, 12, 10);
+    // Chest plate detail
+    vctx.fillStyle = '#333355';
+    vctx.fillRect(x + 7, y + 14, 6, 2);
+    vctx.fillRect(x + 8, y + 16, 4, 3);
+    // Pauldrons (shoulder armor)
+    vctx.fillStyle = '#222244';
+    vctx.fillRect(x, y + 12, 4, 5);
+    vctx.fillRect(x + 16, y + 12, 4, 5);
+    vctx.fillStyle = '#333366';
+    px(vctx, x + 1, y + 13, '#333366'); px(vctx, x + 17, y + 13, '#333366');
+    // Legs (armored)
+    vctx.fillStyle = c1;
+    vctx.fillRect(x + 4, y + 24, 4, 5);
+    vctx.fillRect(x + 12, y + 24, 4, 5);
+    // Sabatons
+    vctx.fillStyle = '#111133';
+    vctx.fillRect(x + 3, y + 28, 6, 2);
+    vctx.fillRect(x + 11, y + 28, 6, 2);
+    // Dark sword (large, glowing)
+    vctx.fillStyle = '#4444AA';
+    vctx.fillRect(x + 19, y - 2, 3, 22);
+    vctx.fillStyle = '#6666CC';
+    vctx.fillRect(x + 20, y - 1, 1, 20);
+    // Crossguard
+    vctx.fillStyle = '#553399';
+    vctx.fillRect(x + 16, y + 9, 10, 3);
+    // Sword glow
+    const glow = Math.sin(t * 0.1) * 0.3 + 0.3;
+    vctx.fillStyle = `rgba(100,100,255,${glow})`;
+    vctx.fillRect(x + 18, y - 2, 5, 22);
+
+  } else if (enemy.name.includes('Señor')) {
+    // Boss: Señor de las Sombras - massive and intimidating
+    const pulse = Math.sin(t * 0.05) * 3;
+    const breathe = Math.sin(t * 0.03) * 1;
+    // Dark aura (pulsing)
+    for (let ring = 3; ring >= 0; ring--) {
+      vctx.fillStyle = `rgba(80,0,140,${0.08 + ring * 0.03})`;
+      vctx.beginPath();
+      vctx.ellipse(x + 20, y + 28, 28 + pulse + ring * 5, 18 + pulse + ring * 3, 0, 0, Math.PI * 2);
+      vctx.fill();
+    }
+    // Shadow on ground
+    vctx.fillStyle = 'rgba(60,0,100,0.5)';
+    vctx.beginPath(); vctx.ellipse(x + 20, y + 46, 22, 5, 0, 0, Math.PI * 2); vctx.fill();
+    // Cape (flowing)
+    vctx.fillStyle = c2;
+    vctx.fillRect(x - 2, y + 8 + breathe, 44, 38);
+    vctx.fillRect(x, y + 6 + breathe, 40, 4);
+    // Cape folds
+    vctx.fillStyle = '#180028';
+    for (let i = 0; i < 4; i++) {
+      vctx.fillRect(x + 2 + i * 10, y + 12, 2, 30);
+    }
+    // Inner robe
+    vctx.fillStyle = c1;
+    vctx.fillRect(x + 6, y + 10 + breathe, 28, 32);
+    // Torso detail
+    vctx.fillStyle = '#550088';
+    vctx.fillRect(x + 12, y + 14, 16, 6);
+    vctx.fillRect(x + 14, y + 20, 12, 4);
+    // Chains
+    vctx.fillStyle = '#888899';
+    for (let i = 0; i < 3; i++) px(vctx, x + 13 + i * 4, y + 13, '#888899');
+    // Head/helmet
+    vctx.fillStyle = '#330055';
+    vctx.fillRect(x + 10, y - 6 + breathe, 20, 18);
+    vctx.fillRect(x + 8, y - 4 + breathe, 24, 14);
+    // Crown (spiky, evil)
+    vctx.fillStyle = '#660088';
+    vctx.fillRect(x + 7, y - 10, 4, 7);
+    vctx.fillRect(x + 13, y - 13, 5, 10);
+    vctx.fillRect(x + 20, y - 15, 4, 12);
+    vctx.fillRect(x + 27, y - 10, 4, 7);
+    // Crown gems
+    vctx.fillStyle = '#FF0066';
+    px(vctx, x + 8, y - 9, '#FF0066');
+    px(vctx, x + 15, y - 12, '#FF0066');
+    px(vctx, x + 21, y - 14, '#FF0066');
+    px(vctx, x + 28, y - 9, '#FF0066');
+    // Eyes (menacing glow)
+    vctx.fillStyle = '#FF0044';
+    vctx.fillRect(x + 14, y + 1 + breathe, 4, 3);
+    vctx.fillRect(x + 22, y + 1 + breathe, 4, 3);
+    vctx.fillStyle = '#FF4466';
+    vctx.fillRect(x + 15, y + 2 + breathe, 2, 1);
+    vctx.fillRect(x + 23, y + 2 + breathe, 2, 1);
+    // Mouth (sinister grin)
+    vctx.fillStyle = '#AA0033';
+    vctx.fillRect(x + 15, y + 7 + breathe, 10, 2);
+    vctx.fillStyle = '#FF2244';
+    for (let i = 0; i < 4; i++) px(vctx, x + 16 + i * 2, y + 7 + breathe, '#FF2244');
+    // Clawed hands
+    vctx.fillStyle = '#440066';
+    vctx.fillRect(x - 6, y + 18, 8, 8);
+    vctx.fillRect(x + 38, y + 18, 8, 8);
+    // Claws
+    vctx.fillStyle = '#AA44DD';
+    for (let i = 0; i < 4; i++) {
+      vctx.fillRect(x - 8 + i * 2, y + 25, 1, 4);
+      vctx.fillRect(x + 39 + i * 2, y + 25, 1, 4);
+    }
+    // Orbiting dark energy
+    const orb = t * 0.08;
+    for (let i = 0; i < 4; i++) {
+      const ox = Math.sin(orb + i * 1.57) * 25;
+      const oy = Math.cos(orb + i * 1.57) * 15;
+      vctx.fillStyle = `rgba(180,0,255,${0.5 + 0.3 * Math.sin(t * 0.1 + i)})`;
+      vctx.beginPath();
+      vctx.arc(x + 20 + ox, y + 20 + oy, 3 + Math.sin(t * 0.15 + i) * 1.5, 0, Math.PI * 2);
+      vctx.fill();
+      // Small trail
+      vctx.fillStyle = `rgba(120,0,200,0.3)`;
+      vctx.beginPath();
+      vctx.arc(x + 20 + ox * 0.7, y + 20 + oy * 0.7, 2, 0, Math.PI * 2);
+      vctx.fill();
     }
   }
 }
 
 function drawBattleCharSprite(x, y, char) {
-  // Sprite de batalla más grande
+  const breathe = Math.sin(game.tick * 0.06) * 0.5;
+  // Battle sprite más grande y detallado
   if (char.id === 'javier') {
     // Javier - Guerrero calvo con barba
+    // Shadow
+    vctx.fillStyle = 'rgba(0,0,0,0.2)';
+    vctx.beginPath(); vctx.ellipse(x + 8, y + 27, 7, 2, 0, 0, Math.PI*2); vctx.fill();
     // Cabeza
-    rect(vctx, x + 3, y, 10, 10, PAL.skin);
-    px(vctx, x + 4, y, '#FFE8CC'); px(vctx, x + 5, y, '#FFE8CC'); // Brillo calva
-    // Ojos
-    px(vctx, x + 5, y + 3, PAL.black);
-    px(vctx, x + 9, y + 3, PAL.black);
-    // Barba
-    rect(vctx, x + 4, y + 6, 8, 4, PAL.beard);
-    rect(vctx, x + 3, y + 7, 2, 2, PAL.beard);
-    rect(vctx, x + 11, y + 7, 2, 2, PAL.beard);
-    // Armadura
+    rect(vctx, x + 3, y + breathe, 10, 10, PAL.skin);
+    px(vctx, x + 4, y + breathe, '#FFE8CC'); px(vctx, x + 5, y + breathe, '#FFE8CC'); px(vctx, x + 6, y + 1 + breathe, '#FFD8BB');
+    // Ojos con brillo
+    px(vctx, x + 4, y + 3 + breathe, '#FFFFFF');
+    px(vctx, x + 5, y + 3 + breathe, PAL.black);
+    px(vctx, x + 8, y + 3 + breathe, '#FFFFFF');
+    px(vctx, x + 9, y + 3 + breathe, PAL.black);
+    // Nariz
+    px(vctx, x + 7, y + 4 + breathe, '#D4A870');
+    // Barba detallada
+    rect(vctx, x + 4, y + 6 + breathe, 8, 4, PAL.beard);
+    rect(vctx, x + 3, y + 7 + breathe, 2, 2, PAL.beard);
+    rect(vctx, x + 11, y + 7 + breathe, 2, 2, PAL.beard);
+    px(vctx, x + 5, y + 7 + breathe, '#997755'); // Beard shadow
+    // Armadura detallada
     rect(vctx, x + 2, y + 10, 12, 10, PAL.armorBlue);
     rect(vctx, x + 4, y + 11, 8, 8, PAL.armorBlueDark);
-    // Cinturón
+    // Armor highlight
+    px(vctx, x + 3, y + 11, '#5588CC');
+    px(vctx, x + 4, y + 12, '#5588CC');
+    // Chest emblem
+    rect(vctx, x + 6, y + 13, 4, 3, '#4477BB');
+    px(vctx, x + 7, y + 14, '#6699DD');
+    // Pauldrons
+    rect(vctx, x + 1, y + 10, 2, 3, '#4477BB');
+    rect(vctx, x + 13, y + 10, 2, 3, '#4477BB');
+    // Cinturón con hebilla
     rect(vctx, x + 2, y + 18, 12, 2, PAL.brown);
+    rect(vctx, x + 7, y + 18, 2, 2, PAL.gold);
     // Piernas
     rect(vctx, x + 3, y + 20, 4, 6, PAL.armorBlueDark);
     rect(vctx, x + 9, y + 20, 4, 6, PAL.armorBlueDark);
-    // Botas
+    // Botas con detalle
     rect(vctx, x + 3, y + 24, 4, 3, PAL.darkBrown);
     rect(vctx, x + 9, y + 24, 4, 3, PAL.darkBrown);
-    // Espada
+    px(vctx, x + 4, y + 24, '#6B4A22');
+    px(vctx, x + 10, y + 24, '#6B4A22');
+    // Espada con brillo
     rect(vctx, x - 2, y + 2, 2, 16, PAL.lightGray);
+    px(vctx, x - 1, y + 4, '#FFFFFF');
+    px(vctx, x - 1, y + 8, '#DDDDEE');
     rect(vctx, x - 4, y + 8, 6, 2, PAL.gold);
+    px(vctx, x - 3, y + 8, '#FFE800');
   } else if (char.id === 'marina') {
     // Marina - Maga
-    // Sombrero
+    vctx.fillStyle = 'rgba(0,0,0,0.2)';
+    vctx.beginPath(); vctx.ellipse(x + 8, y + 26, 6, 2, 0, 0, Math.PI*2); vctx.fill();
+    // Sombrero (más detallado)
+    rect(vctx, x + 2, y - 2, 12, 2, PAL.purple);
     rect(vctx, x + 5, y - 4, 6, 2, PAL.purple);
     rect(vctx, x + 6, y - 6, 4, 2, PAL.purple);
     rect(vctx, x + 7, y - 8, 2, 2, PAL.purple);
+    px(vctx, x + 7, y - 8, '#AA66DD'); // Hat tip highlight
+    // Hat band
+    rect(vctx, x + 4, y - 3, 8, 1, '#FFD700');
+    // Star on hat
+    px(vctx, x + 8, y - 5, '#FFEE88');
     // Pelo
-    rect(vctx, x + 3, y - 1, 10, 3, PAL.purple);
+    rect(vctx, x + 3, y - 1 + breathe, 10, 3, PAL.purple);
     // Cabeza
-    rect(vctx, x + 4, y + 2, 8, 8, PAL.skin);
-    // Ojos
-    px(vctx, x + 5, y + 4, '#2244AA');
-    px(vctx, x + 9, y + 4, '#2244AA');
-    // Pelo largo
-    rect(vctx, x + 2, y + 2, 2, 12, PAL.purple);
-    rect(vctx, x + 12, y + 2, 2, 12, PAL.purple);
-    // Vestido
+    rect(vctx, x + 4, y + 2 + breathe, 8, 8, PAL.skin);
+    // Ojos (blue)
+    px(vctx, x + 5, y + 4 + breathe, '#FFFFFF');
+    px(vctx, x + 5, y + 5 + breathe, '#2244BB');
+    px(vctx, x + 9, y + 4 + breathe, '#FFFFFF');
+    px(vctx, x + 9, y + 5 + breathe, '#2244BB');
+    // Lips
+    px(vctx, x + 7, y + 7 + breathe, '#DD7788');
+    // Pelo largo con fluir
+    rect(vctx, x + 2, y + 2, 2, 14, PAL.purple);
+    rect(vctx, x + 12, y + 2, 2, 14, PAL.purple);
+    px(vctx, x + 2, y + 5, '#7733AA'); // Hair shading
+    px(vctx, x + 12, y + 8, '#7733AA');
+    // Vestido con capas
     rect(vctx, x + 3, y + 10, 10, 12, '#6622AA');
     rect(vctx, x + 2, y + 14, 12, 8, PAL.purple);
+    // Dress trim
+    rect(vctx, x + 2, y + 21, 12, 1, '#FFD700');
+    // Rune on dress
+    px(vctx, x + 7, y + 15, '#BB88DD');
+    px(vctx, x + 8, y + 16, '#BB88DD');
+    px(vctx, x + 7, y + 17, '#BB88DD');
     // Botas
     rect(vctx, x + 4, y + 22, 3, 3, '#4411AA');
     rect(vctx, x + 9, y + 22, 3, 3, '#4411AA');
-    // Bastón
-    rect(vctx, x + 14, y, 2, 22, PAL.brown);
+    // Bastón con cristal brillante
+    rect(vctx, x + 14, y, 2, 22, '#8B6914');
+    px(vctx, x + 15, y + 4, '#A07828'); // Staff highlight
     rect(vctx, x + 13, y - 2, 4, 3, PAL.cyan);
     px(vctx, x + 14, y - 3, '#AAFFFF');
+    // Staff glow
+    const staffGlow = Math.sin(game.tick * 0.08) * 0.3 + 0.4;
+    vctx.fillStyle = `rgba(100,255,255,${staffGlow * 0.3})`;
+    vctx.beginPath(); vctx.arc(x + 15, y - 1, 4, 0, Math.PI * 2); vctx.fill();
   } else if (char.id === 'pau') {
     // Pau - Monje
-    // Cinta
-    rect(vctx, x + 3, y, 10, 2, PAL.red);
+    vctx.fillStyle = 'rgba(0,0,0,0.2)';
+    vctx.beginPath(); vctx.ellipse(x + 8, y + 27, 6, 2, 0, 0, Math.PI*2); vctx.fill();
+    // Cinta (headband)
+    rect(vctx, x + 3, y + breathe, 10, 2, PAL.red);
+    px(vctx, x + 7, y + breathe, '#FF4444'); // Knot
     // Pelo
     rect(vctx, x + 3, y - 1, 10, 2, PAL.darkBrown);
     // Cabeza
-    rect(vctx, x + 4, y + 2, 8, 8, PAL.skinDark);
-    // Ojos
-    px(vctx, x + 5, y + 4, PAL.black);
-    px(vctx, x + 9, y + 4, PAL.black);
-    // Túnica
+    rect(vctx, x + 4, y + 2 + breathe, 8, 8, PAL.skinDark);
+    // Ojos determinados
+    px(vctx, x + 5, y + 4 + breathe, '#FFFFFF');
+    px(vctx, x + 5, y + 5 + breathe, PAL.black);
+    px(vctx, x + 9, y + 4 + breathe, '#FFFFFF');
+    px(vctx, x + 9, y + 5 + breathe, PAL.black);
+    // Boca
+    px(vctx, x + 7, y + 7 + breathe, '#AA7755');
+    // Túnica con pliegues
     rect(vctx, x + 3, y + 10, 10, 10, PAL.orange);
     rect(vctx, x + 5, y + 11, 6, 8, '#CC7722');
+    // Tunic folds
+    px(vctx, x + 4, y + 12, '#BB6611');
+    px(vctx, x + 4, y + 15, '#BB6611');
+    // Sash
+    rect(vctx, x + 3, y + 14, 10, 1, '#884411');
     // Cinturón
     rect(vctx, x + 3, y + 17, 10, 2, PAL.brown);
+    px(vctx, x + 8, y + 17, '#8B6914');
     // Pantalones
     rect(vctx, x + 4, y + 20, 3, 5, PAL.brown);
     rect(vctx, x + 9, y + 20, 3, 5, PAL.brown);
     // Botas
     rect(vctx, x + 4, y + 24, 3, 2, PAL.darkBrown);
     rect(vctx, x + 9, y + 24, 3, 2, PAL.darkBrown);
-    // Puños vendados
-    rect(vctx, x, y + 14, 3, 3, PAL.white);
+    // Puños vendados (más visibles)
+    rect(vctx, x, y + 14, 3, 4, PAL.white);
+    rect(vctx, x + 13, y + 14, 3, 4, PAL.white);
+    // Wrap detail
+    px(vctx, x + 1, y + 15, '#DDDDCC');
+    px(vctx, x + 14, y + 15, '#DDDDCC');
   }
 }
 
@@ -2336,47 +3100,124 @@ function drawMenu() {
 
 // --- PANTALLA DE TÍTULO ---
 function drawTitle() {
-  vctx.fillStyle = '#0A0A1A';
-  vctx.fillRect(0, 0, VIRT_W, VIRT_H);
-
-  // Estrellas de fondo
-  const starSeed = 42;
-  for (let i = 0; i < 50; i++) {
-    const sx = ((starSeed * (i + 1) * 7) % VIRT_W);
-    const sy = ((starSeed * (i + 1) * 13) % (VIRT_H - 80));
-    const brightness = Math.sin(game.tick * 0.02 + i) * 0.5 + 0.5;
-    vctx.fillStyle = `rgba(255,255,255,${brightness * 0.7})`;
-    vctx.fillRect(sx, sy, 1, 1);
+  // Gradient background (deep blue to black)
+  for (let y = 0; y < VIRT_H; y++) {
+    const t = y / VIRT_H;
+    const r = Math.floor(8 - t * 8);
+    const g = Math.floor(8 + t * 4);
+    const b = Math.floor(30 - t * 18);
+    vctx.fillStyle = `rgb(${r},${g},${b})`;
+    vctx.fillRect(0, y, VIRT_W, 1);
   }
 
-  // Título
-  const titleY = 30 + Math.sin(game.tick * 0.03) * 3;
-  drawText(vctx, 'FINAL FANTASY', 55, titleY, PAL.cyan, 12);
-  drawText(vctx, 'CATALONIA', 75, titleY + 18, PAL.gold, 12);
+  // Twinkling stars (many layers)
+  for (let i = 0; i < 70; i++) {
+    const sx = ((97 * (i + 1) * 7 + 23) % VIRT_W);
+    const sy = ((97 * (i + 1) * 13 + 5) % (VIRT_H - 60));
+    const brightness = Math.sin(game.tick * 0.025 + i * 0.9) * 0.5 + 0.5;
+    const size = i < 10 ? 2 : 1;
+    vctx.fillStyle = `rgba(255,255,255,${brightness * 0.8})`;
+    vctx.fillRect(sx, sy, size, size);
+  }
+  // Shooting star occasionally
+  const shootFrame = (game.tick % 300);
+  if (shootFrame < 20) {
+    const sx = 200 - shootFrame * 8;
+    const sy = 30 + shootFrame * 2;
+    vctx.fillStyle = 'rgba(255,255,255,0.7)';
+    vctx.fillRect(sx, sy, 3, 1);
+    vctx.fillStyle = 'rgba(200,200,255,0.3)';
+    vctx.fillRect(sx + 3, sy, 8, 1);
+  }
 
-  // Cristal animado
-  const crystalY = 75;
+  // === ANIMATED CRYSTAL (center, elaborate) ===
+  const crystalY = 62;
   const pulse = Math.sin(game.tick * 0.05) * 2;
-  vctx.fillStyle = '#6644AA';
-  vctx.fillRect(120 - 4, crystalY + pulse, 8, 20);
-  vctx.fillRect(118 - 4, crystalY + 4 + pulse, 12, 12);
-  vctx.fillStyle = '#8866CC';
-  vctx.fillRect(120 - 4, crystalY + 6 + pulse, 6, 6);
-
-  // Subtítulo
-  drawText(vctx, 'La Sombra de Montserrat', 48, 110, PAL.lightGray, 8);
-
-  // Instrucciones
-  if (Math.floor(game.tick / 30) % 2) {
-    drawText(vctx, 'Pulsa ENTER para empezar', 44, 150, PAL.white, 8);
+  const glow = Math.sin(game.tick * 0.03) * 0.2 + 0.4;
+  // Crystal glow behind
+  vctx.fillStyle = `rgba(100, 80, 200, ${glow * 0.3})`;
+  vctx.beginPath(); vctx.arc(VIRT_W/2, crystalY + 12 + pulse, 18 + pulse, 0, Math.PI * 2); vctx.fill();
+  vctx.fillStyle = `rgba(140, 100, 255, ${glow * 0.2})`;
+  vctx.beginPath(); vctx.arc(VIRT_W/2, crystalY + 12 + pulse, 25 + pulse * 1.5, 0, Math.PI * 2); vctx.fill();
+  // Crystal body
+  const cx = VIRT_W / 2;
+  vctx.fillStyle = '#6644BB';
+  vctx.beginPath();
+  vctx.moveTo(cx, crystalY - 8 + pulse);
+  vctx.lineTo(cx + 8, crystalY + 6 + pulse);
+  vctx.lineTo(cx + 6, crystalY + 24 + pulse);
+  vctx.lineTo(cx - 6, crystalY + 24 + pulse);
+  vctx.lineTo(cx - 8, crystalY + 6 + pulse);
+  vctx.closePath(); vctx.fill();
+  // Crystal facet (lighter)
+  vctx.fillStyle = '#8866DD';
+  vctx.beginPath();
+  vctx.moveTo(cx, crystalY - 8 + pulse);
+  vctx.lineTo(cx + 4, crystalY + 10 + pulse);
+  vctx.lineTo(cx, crystalY + 22 + pulse);
+  vctx.lineTo(cx - 4, crystalY + 10 + pulse);
+  vctx.closePath(); vctx.fill();
+  // Crystal shine
+  vctx.fillStyle = '#CCBBFF';
+  vctx.fillRect(cx - 2, crystalY - 4 + pulse, 2, 4);
+  px(vctx, cx - 3, crystalY - 2 + pulse, '#DDCCFF');
+  // Sparkles around crystal
+  for (let i = 0; i < 5; i++) {
+    const angle = game.tick * 0.04 + i * 1.26;
+    const dist = 14 + Math.sin(game.tick * 0.06 + i) * 4;
+    const sx = cx + Math.cos(angle) * dist;
+    const sy = crystalY + 10 + Math.sin(angle) * dist * 0.6 + pulse;
+    const br = Math.sin(game.tick * 0.08 + i * 2) * 0.5 + 0.5;
+    vctx.fillStyle = `rgba(200,180,255,${br * 0.7})`;
+    vctx.fillRect(sx, sy, 2, 2);
   }
 
-  // Controles
-  drawText(vctx, 'Flechas: Mover', 30, 175, PAL.darkGray, 7);
-  drawText(vctx, 'Enter/Espacio: Acción', 30, 185, PAL.darkGray, 7);
-  drawText(vctx, 'M: Menú  ESC: Atrás', 30, 195, PAL.darkGray, 7);
+  // === TITLE TEXT ===
+  const titleY = 20 + Math.sin(game.tick * 0.025) * 2;
 
-  drawText(vctx, 'v1.0 Demo', 95, VIRT_H - 12, PAL.darkGray, 7);
+  // Title shadow
+  drawText(vctx, 'FINAL FANTASY', 56, titleY + 1, 'rgba(0,0,0,0.6)', 12);
+  drawText(vctx, 'FINAL FANTASY', 55, titleY, '#88CCFF', 12);
+
+  drawText(vctx, 'CATALONIA', 76, titleY + 17, 'rgba(0,0,0,0.6)', 12);
+  drawText(vctx, 'CATALONIA', 75, titleY + 16, PAL.gold, 12);
+
+  // Subtitle
+  drawText(vctx, 'La Sombra de Montserrat', 48, 100, '#8899AA', 8);
+
+  // Decorative line
+  vctx.fillStyle = '#334466';
+  vctx.fillRect(40, 112, VIRT_W - 80, 1);
+  vctx.fillStyle = '#556688';
+  vctx.fillRect(60, 113, VIRT_W - 120, 1);
+
+  // === MENU OPTIONS ===
+  const menuY = 125;
+  const hasSave = game._pendingSave;
+  if (hasSave) {
+    const sel1 = game._titleCursor === 0;
+    const sel2 = game._titleCursor === 1;
+    if (sel1) drawText(vctx, '\u25b6', 60, menuY, PAL.yellow, 8);
+    drawText(vctx, 'CONTINUAR', 72, menuY, sel1 ? PAL.yellow : '#667788', 8);
+    if (sel2) drawText(vctx, '\u25b6', 60, menuY + 14, PAL.yellow, 8);
+    drawText(vctx, 'NUEVA PARTIDA', 72, menuY + 14, sel2 ? PAL.yellow : '#667788', 8);
+  } else {
+    if (Math.floor(game.tick / 25) % 2) {
+      drawText(vctx, 'Pulsa ENTER para empezar', 44, menuY + 7, PAL.white, 8);
+    }
+  }
+
+  // Controls (smaller, at bottom)
+  drawText(vctx, 'Flechas: Mover', 30, 170, '#445566', 7);
+  drawText(vctx, 'Enter/Espacio: Acci\u00f3n', 30, 180, '#445566', 7);
+  drawText(vctx, 'M: Men\u00fa  ESC: Atr\u00e1s', 30, 190, '#445566', 7);
+
+  // Version
+  drawText(vctx, 'v1.0 Demo', 95, VIRT_H - 12, '#334455', 7);
+
+  // Bottom horizon line
+  vctx.fillStyle = 'rgba(60,80,120,0.2)';
+  vctx.fillRect(0, VIRT_H - 1, VIRT_W, 1);
 }
 
 // --- PANTALLA GAME OVER ---
@@ -2514,11 +3355,32 @@ function update() {
   switch (game.state) {
     case 'title':
       if (!game.musicStarted && audioCtx) { game.musicStarted = true; playMusic('menu'); }
+      if (!game._titleCursor) game._titleCursor = 0;
       if (isJustPressed('o') || isJustPressed('O')) { initAudio(); toggleSettings(); }
-      if (isJustPressed('Enter') || isJustPressed(' ')) {
-        initAudio();
-        sfxSelect();
-        startIntro();
+      if (game._pendingSave) {
+        // Menu navigation: Continue / New Game
+        if (isJustPressed('ArrowUp') || isJustPressed('ArrowDown')) {
+          game._titleCursor = game._titleCursor === 0 ? 1 : 0;
+          sfxCursor();
+        }
+        if (isJustPressed('Enter') || isJustPressed(' ')) {
+          initAudio(); sfxSelect();
+          if (game._titleCursor === 0) {
+            // Continue: apply saved data
+            applyLoadedGame(game._pendingSave);
+            game._pendingSave = null;
+            game.state = 'explore';
+            playMusic('world');
+          } else {
+            game._pendingSave = null;
+            startIntro();
+          }
+        }
+      } else {
+        if (isJustPressed('Enter') || isJustPressed(' ')) {
+          initAudio(); sfxSelect();
+          startIntro();
+        }
       }
       break;
 
@@ -2667,6 +3529,17 @@ function patchBattle() {
 // --- INICIALIZACIÓN ---
 generateTiles();
 game.state = 'title';
+game._titleCursor = 0;
+game._pendingSave = null;
+
+// Init auth system
+openDB().then(() => {
+  initAuthUI();
+}).catch(err => {
+  console.warn('IndexedDB not available, skipping auth:', err);
+  document.getElementById('auth-overlay').classList.add('hidden');
+});
+
 gameLoop();
 
 console.log('%c¡Final Fantasy Catalonia cargado!', 'color: #4466AA; font-size: 16px; font-weight: bold;');
