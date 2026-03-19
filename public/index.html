@@ -890,12 +890,19 @@ const PAL = {
 const keys = {};
 const justPressed = {};
 document.addEventListener('keydown', e => {
+  // Allow typing in input/textarea fields (login, register, etc.)
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (!keys[e.key]) justPressed[e.key] = true;
   keys[e.key] = true;
   e.preventDefault();
   initAudio();
 });
-document.addEventListener('keyup', e => { keys[e.key] = false; });
+document.addEventListener('keyup', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  keys[e.key] = false;
+});
 function isJustPressed(key) {
   if (justPressed[key]) { justPressed[key] = false; return true; }
   return false;
