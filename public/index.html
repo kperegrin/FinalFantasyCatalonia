@@ -224,7 +224,7 @@ async function authLogin(username, password) {
 async function saveGame() {
   if (!AUTH.currentUser) return;
   const saveData = {
-    party: game.party, items: game.items, gil: game.gil,
+    party: game.party, reserve: game.reserve, items: game.items, gil: game.gil,
     flags: game.flags, currentMap: game.currentMap,
     playerX: game.player.x, playerY: game.player.y,
     playerDir: game.player.dir, stepCount: game.player.stepCount,
@@ -252,6 +252,7 @@ async function loadGame() {
 function applyLoadedGame(data) {
   if (!data) return false;
   game.party = data.party;
+  game.reserve = data.reserve || [];
   game.items = data.items;
   game.gil = data.gil;
   game.flags = data.flags;
@@ -261,12 +262,13 @@ function applyLoadedGame(data) {
   game.player.dir = data.playerDir;
   game.player.stepCount = data.stepCount || 0;
   // Re-link skills from SKILLS object
-  game.party.forEach(p => {
-    const skillMap = { 'javier': [SKILLS.golpeFuerte, SKILLS.gritoGuerra], 'marina': [SKILLS.fuego, SKILLS.hielo, SKILLS.cura], 'pau': [SKILLS.punoSagrado, SKILLS.curaMayor, SKILLS.proteger], 'gojo': [SKILLS.infinito, SKILLS.azulAtraccion, SKILLS.rojoRepulsion, SKILLS.hollowPurple, SKILLS.domainVoid], 'sukuna': [SKILLS.cleave, SKILLS.dismantle, SKILLS.fireArrow, SKILLS.fuga, SKILLS.domainShrine] };
+  const relinkSkills = (p) => {
+    const skillMap = { 'javier': [SKILLS.golpeFuerte, SKILLS.gritoGuerra], 'marina': [SKILLS.fuego, SKILLS.hielo, SKILLS.cura], 'pau': [SKILLS.punoSagrado, SKILLS.curaMayor, SKILLS.proteger], 'gojo': [SKILLS.infinito, SKILLS.azulAtraccion, SKILLS.rojoRepulsion, SKILLS.hollowPurple, SKILLS.domainVoid], 'sukuna': [SKILLS.cleave, SKILLS.dismantle, SKILLS.fireArrow, SKILLS.tajoMundo, SKILLS.domainShrine] };
     if (skillMap[p.id]) p.skills = skillMap[p.id];
-    // Unlock Rayo for high-level Marina
     if (p.id === 'marina' && p.level >= 6 && !p.skills.find(s => s.name === 'Rayo')) p.skills.push(SKILLS.rayo);
-  });
+  };
+  game.party.forEach(relinkSkills);
+  game.reserve.forEach(relinkSkills);
   return true;
 }
 
@@ -777,7 +779,7 @@ function sfxSukunaCleave() {
   g.gain.setValueAtTime(v*0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.15);
   o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.2);
 }
-// Dismantle / Fuga - corte dimensional devastador (multi-slash)
+// Desmantelar / Tajo al Mundo - corte dimensional devastador (multi-slash)
 function sfxSukunaDismantle() {
   if (!audioCtx) return; const v = getSfxVol();
   for (let i = 0; i < 4; i++) setTimeout(() => {
@@ -795,7 +797,7 @@ function sfxSukunaDismantle() {
     o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.3);
   }, 200);
 }
-// Flecha de Fuego de Sukuna
+// Flecha Llameante de Sukuna
 function sfxSukunaFireArrow() {
   if (!audioCtx) return; const v = getSfxVol();
   // charging whoosh
@@ -816,14 +818,14 @@ function sfxSukunaFireArrow() {
 function sfxForSkill(skillName) {
   // -- JJK SKILLS (check first, before generic matches) --
   // Gojo SFX
-  if (skillName.includes('蒼') || skillName.includes('Infinito')) return sfxGojoBlue();
-  if (skillName.includes('赫')) return sfxGojoRed();
-  if (skillName.includes('茈')) return sfxHollowPurple();
+  if (skillName.includes('Azul: Atracci') || skillName.includes('Infinito')) return sfxGojoBlue();
+  if (skillName.includes('Rojo: Repulsi')) return sfxGojoRed();
+  if (skillName.includes('Púrpura Hueco')) return sfxHollowPurple();
   if (skillName.includes('Vacío Infinito')) return sfxDomainExpansion();
   // Sukuna SFX
-  if (skillName.includes('Cleave')) return sfxSukunaCleave();
-  if (skillName.includes('Dismantle') || skillName.includes('Fuga')) return sfxSukunaDismantle();
-  if (skillName.includes('Flecha de Fuego')) return sfxSukunaFireArrow();
+  if (skillName === 'Tajo') return sfxSukunaCleave();
+  if (skillName.includes('Desmantelar') || skillName.includes('Tajo al Mundo')) return sfxSukunaDismantle();
+  if (skillName.includes('Flecha Llameante')) return sfxSukunaFireArrow();
   if (skillName.includes('Altar Maligno')) return sfxDomainExpansion();
   // -- Original skills --
   if (skillName.includes('Fuego')) return sfxFire();
@@ -1588,8 +1590,8 @@ maps.cave = {
     // Cristales decorativos
     m[20][8] = T.CRYSTAL;
     m[20][12] = T.CRYSTAL;
-    // Cofre
-    m[6][15] = T.CHEST;
+    // Cofre (along the vertical corridor near x=16)
+    m[8][17] = T.CHEST;
     return m;
   })(),
   npcs: [],
@@ -1674,16 +1676,16 @@ const SKILLS = {
   proteger: { name: 'Proteger', cost: 10, power: 0, type: 'buff_def', target: 'party', desc: '+DEF al grupo' },
   // Gojo Satoru
   infinito: { name: 'Infinito', cost: 8, power: 0, type: 'buff_def', target: 'party', desc: 'Barrera absoluta +DEF' },
-  azulAtraccion: { name: '術式順転「蒼」', cost: 12, power: 28, type: 'magic', target: 'enemy', desc: 'Atracción gravitacional' },
-  rojoRepulsion: { name: '術式反転「赫」', cost: 14, power: 32, type: 'magic', target: 'enemy', desc: 'Repulsión explosiva' },
-  hollowPurple: { name: '虚式「茈」', cost: 30, power: 65, type: 'magic', target: 'enemy', desc: 'Púrpura Hueco - aniquilación' },
-  domainVoid: { name: 'Dominio: Vacío Infinito', cost: 40, power: 80, type: 'magic', target: 'enemy', desc: 'Expansión de dominio' },
+  azulAtraccion: { name: 'Azul: Atracción', cost: 12, power: 28, type: 'magic', target: 'enemy', desc: 'Implosión gravitacional' },
+  rojoRepulsion: { name: 'Rojo: Repulsión', cost: 14, power: 32, type: 'magic', target: 'enemy', desc: 'Explosión expansiva' },
+  hollowPurple: { name: 'Púrpura Hueco', cost: 30, power: 65, type: 'magic', target: 'enemy', desc: 'Azul + Rojo = aniquilación total' },
+  domainVoid: { name: 'Dominio: Vacío Infinito', cost: 40, power: 80, type: 'magic', target: 'enemy', desc: 'Expansión de dominio - información infinita' },
   // Ryomen Sukuna
-  cleave: { name: 'Cleave', cost: 6, power: 25, type: 'physical', target: 'enemy', desc: 'Corte adaptativo' },
-  dismantle: { name: 'Dismantle', cost: 10, power: 35, type: 'physical', target: 'enemy', desc: 'Corte que desmantela todo' },
-  fireArrow: { name: 'Flecha de Fuego', cost: 15, power: 40, type: 'magic', target: 'enemy', desc: 'Llamas del Rey de las Maldiciones' },
-  domainShrine: { name: 'Dominio: Altar Maligno', cost: 45, power: 90, type: 'magic', target: 'enemy', desc: 'Expansión de dominio' },
-  fuga: { name: 'Fuga', cost: 20, power: 50, type: 'physical', target: 'enemy', desc: 'Corte dimensional devastador' },
+  cleave: { name: 'Tajo', cost: 6, power: 25, type: 'physical', target: 'enemy', desc: 'Corte adaptativo preciso' },
+  dismantle: { name: 'Desmantelar', cost: 10, power: 35, type: 'physical', target: 'enemy', desc: 'Cortes invisibles que lo desmantela todo' },
+  fireArrow: { name: 'Flecha Llameante', cost: 18, power: 45, type: 'magic', target: 'enemy', desc: 'Arco de fuego - rayo ígneo desde el cielo' },
+  domainShrine: { name: 'Dominio: Altar Maligno', cost: 45, power: 90, type: 'magic', target: 'enemy', desc: 'Expansión de dominio - santuario de destrucción' },
+  tajoMundo: { name: 'Tajo al Mundo', cost: 25, power: 55, type: 'physical', target: 'enemy', desc: 'Corte dimensional que desgarra la realidad' },
 };
 
 // --- ESTADO DEL JUEGO ---
@@ -1703,7 +1705,8 @@ const game = {
   flags: {},
   dialogue: null,
   battle: null,
-  menu: { open: false, cursor: 0, subMenu: null, subCursor: 0 },
+  menu: { open: false, cursor: 0, subMenu: null, subCursor: 0, swapSource: -1 },
+  reserve: [],
   transition: null,
   animFrame: 0,
   moveDelay: 0,
@@ -1724,51 +1727,55 @@ function initParty() {
 }
 
 function addMarina() {
-  if (game.party.find(p => p.id === 'marina')) return;
-  game.party.push({
+  if (game.party.find(p => p.id === 'marina') || game.reserve.find(p => p.id === 'marina')) return;
+  const char = {
     id: 'marina', name: 'Marina', class: 'Maga', level: 4,
     hp: 70, maxHp: 70, mp: 80, maxMp: 80,
     atk: 5, def: 6, spd: 10, mag: 18,
     exp: 0, nextExp: 45,
     skills: [SKILLS.fuego, SKILLS.hielo, SKILLS.cura],
     sprite: 'marina',
-  });
+  };
+  if (game.party.length < 3) game.party.push(char); else game.reserve.push(char);
 }
 
 function addPau() {
-  if (game.party.find(p => p.id === 'pau')) return;
-  game.party.push({
+  if (game.party.find(p => p.id === 'pau') || game.reserve.find(p => p.id === 'pau')) return;
+  const char = {
     id: 'pau', name: 'Pau', class: 'Monje', level: 5,
     hp: 100, maxHp: 100, mp: 40, maxMp: 40,
     atk: 12, def: 10, spd: 9, mag: 8,
     exp: 0, nextExp: 50,
     skills: [SKILLS.punoSagrado, SKILLS.curaMayor, SKILLS.proteger],
     sprite: 'pau',
-  });
+  };
+  if (game.party.length < 3) game.party.push(char); else game.reserve.push(char);
 }
 
 function addGojo() {
-  if (game.party.find(p => p.id === 'gojo')) return;
-  game.party.push({
+  if (game.party.find(p => p.id === 'gojo') || game.reserve.find(p => p.id === 'gojo')) return;
+  const char = {
     id: 'gojo', name: 'Gojo', class: 'Hechicero', level: 10,
     hp: 150, maxHp: 150, mp: 120, maxMp: 120,
     atk: 14, def: 20, spd: 18, mag: 28,
     exp: 0, nextExp: 100,
     skills: [SKILLS.infinito, SKILLS.azulAtraccion, SKILLS.rojoRepulsion, SKILLS.hollowPurple, SKILLS.domainVoid],
     sprite: 'gojo',
-  });
+  };
+  if (game.party.length < 3) game.party.push(char); else game.reserve.push(char);
 }
 
 function addSukuna() {
-  if (game.party.find(p => p.id === 'sukuna')) return;
-  game.party.push({
+  if (game.party.find(p => p.id === 'sukuna') || game.reserve.find(p => p.id === 'sukuna')) return;
+  const char = {
     id: 'sukuna', name: 'Sukuna', class: 'Rey Maldición', level: 10,
     hp: 180, maxHp: 180, mp: 100, maxMp: 100,
     atk: 30, def: 16, spd: 16, mag: 22,
     exp: 0, nextExp: 100,
-    skills: [SKILLS.cleave, SKILLS.dismantle, SKILLS.fireArrow, SKILLS.fuga, SKILLS.domainShrine],
+    skills: [SKILLS.cleave, SKILLS.dismantle, SKILLS.fireArrow, SKILLS.tajoMundo, SKILLS.domainShrine],
     sprite: 'sukuna',
-  });
+  };
+  if (game.party.length < 3) game.party.push(char); else game.reserve.push(char);
 }
 
 // --- SISTEMA DE CÓDIGOS DE REGALO ---
@@ -2095,7 +2102,7 @@ function startBattle(enemyIds, isBoss) {
     buffAtk: 0, buffDef: 0,
   }));
 
-  const partyBattle = game.party.filter(p => p.hp > 0).map((p, i) => ({
+  const partyBattle = game.party.filter(p => p.hp > 0).slice(0, 3).map((p, i) => ({
     ...p,
     index: i,
     alive: p.hp > 0,
@@ -2130,6 +2137,11 @@ function startBattle(enemyIds, isBoss) {
     flashColor: '',
     shakeTimer: 0,
     particles: [],
+    domainBg: null,
+    domainBgTimer: 0,
+    specialAnim: null,
+    specialAnimTimer: 0,
+    specialAnimTarget: null,
   };
   playTone(200, 0.3, 'sawtooth', 0.08);
 }
@@ -2147,6 +2159,8 @@ function updateBattle() {
 
   if (b.flashTimer > 0) b.flashTimer--;
   if (b.shakeTimer > 0) b.shakeTimer--;
+  if (b.domainBgTimer > 0) { b.domainBgTimer--; if (b.domainBgTimer <= 0) b.domainBg = null; }
+  if (b.specialAnimTimer > 0) { b.specialAnimTimer--; if (b.specialAnimTimer <= 0) b.specialAnim = null; }
 
   if (b.messageTimer > 0) {
     b.messageTimer--;
@@ -2452,42 +2466,60 @@ function executeSkill(caster, skill, target) {
     const tdy = target.isEnemy ? 40 + target.index * 25 : 30 + target.index * 35;
     // Floating damage number with JJK colors
     let floatColor = '#CC66FF';
-    if (skill.name.includes('Fuego') || skill.name.includes('Flecha')) floatColor = '#FF6622';
+    if (skill.name.includes('Fuego') || skill.name.includes('Llameante')) floatColor = '#FF6622';
     else if (skill.name.includes('Hielo')) floatColor = '#44CCFF';
     else if (skill.name.includes('Rayo')) floatColor = '#FFFF00';
-    else if (skill.name.includes('蒼')) floatColor = '#4488FF';
-    else if (skill.name.includes('赫')) floatColor = '#FF4466';
-    else if (skill.name.includes('茈')) floatColor = '#AA44FF';
+    else if (skill.name.includes('Azul: Atracci')) floatColor = '#4488FF';
+    else if (skill.name.includes('Rojo: Repulsi')) floatColor = '#FF4466';
+    else if (skill.name.includes('Púrpura Hueco')) floatColor = '#AA44FF';
     else if (skill.name.includes('Vacío')) floatColor = '#AADDFF';
-    else if (skill.name.includes('Cleave') || skill.name.includes('Dismantle') || skill.name.includes('Fuga')) floatColor = '#FF3355';
+    else if (skill.name === 'Tajo' || skill.name.includes('Desmantelar') || skill.name.includes('Tajo al Mundo')) floatColor = '#FF3355';
     else if (skill.name.includes('Altar')) floatColor = '#FF1133';
     addFloatingText(tdx, tdy - 5, '-' + damage, floatColor);
 
     // Element-specific color + flash
     let pColor, pColor2;
-    if (skill.name.includes('Fuego') || skill.name.includes('Flecha de Fuego')) { pColor = '#FF4400'; pColor2 = '#FF8800'; b.flashColor = '#FF440066'; }
+    if (skill.name.includes('Fuego') || skill.name.includes('Llameante')) { pColor = '#FF4400'; pColor2 = '#FF8800'; b.flashColor = '#FF440066'; }
     else if (skill.name.includes('Hielo')) { pColor = '#44CCFF'; pColor2 = '#AAEEFF'; b.flashColor = '#44CCFF66'; }
     else if (skill.name.includes('Rayo')) { pColor = '#FFFF00'; pColor2 = '#FFFF88'; b.flashColor = '#FFFF0066'; }
     // --- JJK SPECIAL COLORS ---
-    else if (skill.name.includes('蒼')) { pColor = '#2266FF'; pColor2 = '#66AAFF'; b.flashColor = '#2266FF66'; }
-    else if (skill.name.includes('赫')) { pColor = '#FF2244'; pColor2 = '#FF6688'; b.flashColor = '#FF224466'; }
-    else if (skill.name.includes('茈')) { pColor = '#8800FF'; pColor2 = '#CC66FF'; b.flashColor = '#8800FF88'; }
+    else if (skill.name.includes('Azul: Atracci')) { pColor = '#2266FF'; pColor2 = '#66AAFF'; b.flashColor = '#2266FF66'; }
+    else if (skill.name.includes('Rojo: Repulsi')) { pColor = '#FF2244'; pColor2 = '#FF6688'; b.flashColor = '#FF224466'; }
+    else if (skill.name.includes('Púrpura Hueco')) { pColor = '#8800FF'; pColor2 = '#CC66FF'; b.flashColor = '#8800FF88'; }
     else if (skill.name.includes('Vacío Infinito')) { pColor = '#AACCFF'; pColor2 = '#FFFFFF'; b.flashColor = '#AACCFF88'; }
-    else if (skill.name.includes('Cleave')) { pColor = '#FF3355'; pColor2 = '#FF8899'; b.flashColor = '#FF335566'; }
-    else if (skill.name.includes('Dismantle') || skill.name.includes('Fuga')) { pColor = '#FF1133'; pColor2 = '#FF4466'; b.flashColor = '#FF113388'; }
+    else if (skill.name === 'Tajo') { pColor = '#FF3355'; pColor2 = '#FF8899'; b.flashColor = '#FF335566'; }
+    else if (skill.name.includes('Desmantelar') || skill.name.includes('Tajo al Mundo')) { pColor = '#FF1133'; pColor2 = '#FF4466'; b.flashColor = '#FF113388'; }
     else if (skill.name.includes('Altar Maligno')) { pColor = '#880022'; pColor2 = '#FF3344'; b.flashColor = '#88002288'; }
     else { pColor = '#CC44FF'; pColor2 = '#EE88FF'; b.flashColor = '#CC44FF44'; }
 
     // --- JJK ANIME SPECIAL ANIMATIONS ---
-    const isGojoBlue = skill.name.includes('蒼');
-    const isGojoRed = skill.name.includes('赫');
-    const isHollowPurple = skill.name.includes('茈');
+    const isGojoBlue = skill.name.includes('Azul: Atracci');
+    const isGojoRed = skill.name.includes('Rojo: Repulsi');
+    const isHollowPurple = skill.name.includes('Púrpura Hueco');
     const isDomainVoid = skill.name.includes('Vacío Infinito');
-    const isCleave = skill.name.includes('Cleave');
-    const isDismantle = skill.name.includes('Dismantle');
-    const isFuga = skill.name.includes('Fuga');
+    const isCleave = skill.name === 'Tajo';
+    const isDismantle = skill.name.includes('Desmantelar');
+    const isTajoMundo = skill.name.includes('Tajo al Mundo');
     const isDomainShrine = skill.name.includes('Altar Maligno');
-    const isFireArrow = skill.name.includes('Flecha de Fuego') && caster.id === 'sukuna';
+    const isFireArrow = skill.name.includes('Flecha Llameante');
+
+    // --- DOMAIN BACKGROUND TAKEOVER ---
+    if (isDomainVoid || isDomainShrine) {
+      b.domainBg = isDomainVoid ? 'void' : 'shrine';
+      b.domainBgTimer = 120;
+    }
+    // --- MULTI-PHASE ANIMATION for Hollow Purple ---
+    if (isHollowPurple) {
+      b.specialAnim = 'hollowPurple';
+      b.specialAnimTimer = 90;
+      b.specialAnimTarget = { x: tdx, y: tdy };
+    }
+    // --- MULTI-PHASE ANIMATION for Flecha Llameante ---
+    if (isFireArrow) {
+      b.specialAnim = 'fireArrow';
+      b.specialAnimTimer = 80;
+      b.specialAnimTarget = { x: tdx, y: tdy };
+    }
 
     if (isGojoBlue) {
       // BLUE: Gravitational attraction - particles spiral inward to target
@@ -2610,10 +2642,10 @@ function executeSkill(caster, skill, target) {
           life: 15, color: '#FF1133', size: 1.5,
         });
       }
-    } else if (isDismantle || isFuga) {
-      // DISMANTLE/FUGA: Multiple invisible slashes criss-crossing
-      b.flashTimer = isFuga ? 25 : 16; b.shakeTimer = isFuga ? 18 : 10;
-      const slashCount = isFuga ? 6 : 4;
+    } else if (isDismantle || isTajoMundo) {
+      // DESMANTELAR / TAJO AL MUNDO: Multiple invisible slashes criss-crossing
+      b.flashTimer = isTajoMundo ? 25 : 16; b.shakeTimer = isTajoMundo ? 18 : 10;
+      const slashCount = isTajoMundo ? 6 : 4;
       for (let s = 0; s < slashCount; s++) {
         const sAngle = (s / slashCount) * Math.PI;
         for (let i = 0; i < 10; i++) {
@@ -2628,16 +2660,16 @@ function executeSkill(caster, skill, target) {
           });
         }
       }
-      // Devastation core (bigger for Fuga)
-      const coreCount = isFuga ? 20 : 8;
+      // Devastation core (bigger for Tajo al Mundo)
+      const coreCount = isTajoMundo ? 20 : 8;
       for (let i = 0; i < coreCount; i++) {
         const a = (i/coreCount)*Math.PI*2;
         b.particles.push({
           x: tdx, y: tdy + 15,
-          vx: Math.cos(a) * (isFuga ? 4 : 2.5),
-          vy: Math.sin(a) * (isFuga ? 4 : 2.5),
+          vx: Math.cos(a) * (isTajoMundo ? 4 : 2.5),
+          vy: Math.sin(a) * (isTajoMundo ? 4 : 2.5),
           life: 18 + Math.random()*10,
-          color: '#FF3344', size: isFuga ? 2 : 1.5,
+          color: '#FF3344', size: isTajoMundo ? 2 : 1.5,
         });
       }
     } else if (isDomainShrine) {
@@ -2968,6 +3000,94 @@ function drawBattle() {
   vctx.fillStyle = isBoss ? '#120820' : isCave ? '#18182A' : '#0A200A';
   vctx.fillRect(0, 140, VIRT_W, VIRT_H - 140);
 
+  // === DOMAIN EXPANSION BACKGROUND OVERLAY ===
+  if (b.domainBg) {
+    const dAlpha = Math.min(1, b.domainBgTimer / 20);
+    vctx.save();
+    vctx.globalAlpha = dAlpha * 0.85;
+    if (b.domainBg === 'void') {
+      // Unlimited Void: deep space with floating geometric shapes
+      vctx.fillStyle = '#050515';
+      vctx.fillRect(0, 0, VIRT_W, VIRT_H);
+      // Cosmic grid lines
+      vctx.strokeStyle = '#2244AA';
+      vctx.lineWidth = 0.5;
+      for (let i = 0; i < 12; i++) {
+        const offset = (game.tick * 0.5 + i * 22) % VIRT_W;
+        vctx.beginPath(); vctx.moveTo(offset, 0); vctx.lineTo(offset, VIRT_H); vctx.stroke();
+      }
+      for (let i = 0; i < 8; i++) {
+        const offset = (game.tick * 0.3 + i * 30) % VIRT_H;
+        vctx.beginPath(); vctx.moveTo(0, offset); vctx.lineTo(VIRT_W, offset); vctx.stroke();
+      }
+      // Floating stars and orbs
+      for (let i = 0; i < 40; i++) {
+        const sx = ((i * 73 + 31 + game.tick * 0.2 * ((i%3)+1)) % VIRT_W);
+        const sy = ((i * 47 + 17 + game.tick * 0.1 * ((i%2)+1)) % VIRT_H);
+        const br = Math.sin(game.tick * 0.06 + i * 2.1) * 0.3 + 0.7;
+        vctx.fillStyle = `rgba(${150+i*2},${180+i%80},255,${br})`;
+        vctx.beginPath(); vctx.arc(sx, sy, 0.5 + (i%3)*0.5, 0, Math.PI*2); vctx.fill();
+      }
+      // Central eye/sphere
+      const pulse = Math.sin(game.tick * 0.05) * 5;
+      vctx.fillStyle = '#1133AA';
+      vctx.beginPath(); vctx.arc(VIRT_W/2, VIRT_H/2 - 20, 18 + pulse, 0, Math.PI*2); vctx.fill();
+      vctx.fillStyle = '#88BBFF';
+      vctx.beginPath(); vctx.arc(VIRT_W/2, VIRT_H/2 - 20, 8 + pulse*0.3, 0, Math.PI*2); vctx.fill();
+      vctx.fillStyle = '#FFFFFF';
+      vctx.beginPath(); vctx.arc(VIRT_W/2, VIRT_H/2 - 20, 3, 0, Math.PI*2); vctx.fill();
+    } else if (b.domainBg === 'shrine') {
+      // Malevolent Shrine: dark red temple with skulls and pillars
+      vctx.fillStyle = '#1A0508';
+      vctx.fillRect(0, 0, VIRT_W, VIRT_H);
+      // Blood red gradient sky
+      for (let y = 0; y < 80; y++) {
+        const t = y / 80;
+        vctx.fillStyle = `rgb(${Math.floor(40 + t * 60)},${Math.floor(5 + t * 8)},${Math.floor(8 + t * 12)})`;
+        vctx.fillRect(0, y, VIRT_W, 1);
+      }
+      // Dark temple pillars
+      vctx.fillStyle = '#2A0A0E';
+      for (let i = 0; i < 5; i++) {
+        const px = 10 + i * 60;
+        vctx.fillRect(px, 20, 8, 120);
+        vctx.fillRect(px - 2, 18, 12, 4);
+        vctx.fillRect(px - 2, 135, 12, 4);
+      }
+      // Flickering torches on pillars
+      for (let i = 0; i < 5; i++) {
+        const px = 14 + i * 60;
+        const flicker = Math.sin(game.tick * 0.15 + i * 1.5) * 2;
+        vctx.fillStyle = '#FF4422';
+        vctx.beginPath(); vctx.arc(px, 30, 3 + flicker, 0, Math.PI*2); vctx.fill();
+        vctx.fillStyle = '#FFAA44';
+        vctx.beginPath(); vctx.arc(px, 30, 1.5, 0, Math.PI*2); vctx.fill();
+      }
+      // Shrine mouth/demon face silhouette at center
+      vctx.fillStyle = '#3A0A10';
+      vctx.beginPath();
+      vctx.moveTo(VIRT_W/2 - 30, 140); vctx.lineTo(VIRT_W/2, 60); vctx.lineTo(VIRT_W/2 + 30, 140);
+      vctx.fill();
+      // Glowing red eyes
+      vctx.fillStyle = '#FF0000';
+      const eyePulse = Math.sin(game.tick * 0.08) * 0.5 + 1;
+      vctx.beginPath(); vctx.arc(VIRT_W/2 - 8, 90, 2 * eyePulse, 0, Math.PI*2); vctx.fill();
+      vctx.beginPath(); vctx.arc(VIRT_W/2 + 8, 90, 2 * eyePulse, 0, Math.PI*2); vctx.fill();
+      // Floating dark kanji-like symbols
+      vctx.fillStyle = '#880022';
+      for (let i = 0; i < 8; i++) {
+        const sx = (i * 37 + game.tick * 0.3) % VIRT_W;
+        const sy = 20 + Math.sin(game.tick * 0.04 + i) * 40 + 50;
+        vctx.fillRect(sx, sy, 3, 6);
+        vctx.fillRect(sx - 1, sy + 2, 5, 1);
+      }
+      // Blood red ground
+      vctx.fillStyle = '#220508';
+      vctx.fillRect(0, 140, VIRT_W, VIRT_H - 140);
+    }
+    vctx.restore();
+  }
+
   // Flash
   if (b.flashTimer > 0) {
     vctx.fillStyle = b.flashColor;
@@ -3025,6 +3145,193 @@ function drawBattle() {
     }
   });
   vctx.globalAlpha = 1;
+
+  // === SPECIAL MULTI-PHASE ANIMATIONS ===
+  if (b.specialAnim && b.specialAnimTarget) {
+    const sat = b.specialAnimTarget;
+    const phase = 1 - (b.specialAnimTimer / (b.specialAnim === 'hollowPurple' ? 90 : 80));
+
+    if (b.specialAnim === 'hollowPurple') {
+      // Phase 1 (0-0.3): Blue orb forms on LEFT hand
+      // Phase 2 (0.3-0.6): Red orb forms on RIGHT hand
+      // Phase 3 (0.6-1.0): Both merge into purple beam
+      const casterX = 190, casterY = 50;
+      vctx.save();
+
+      if (phase < 0.35) {
+        // Blue orb channeling - left side
+        const p1 = phase / 0.35;
+        const blueR = 6 * p1;
+        vctx.fillStyle = '#2266FF';
+        vctx.globalAlpha = 0.7 * p1;
+        vctx.beginPath(); vctx.arc(casterX - 12, casterY + 5, blueR, 0, Math.PI*2); vctx.fill();
+        vctx.fillStyle = '#88BBFF';
+        vctx.globalAlpha = 0.5 * p1;
+        vctx.beginPath(); vctx.arc(casterX - 12, casterY + 5, blueR * 0.5, 0, Math.PI*2); vctx.fill();
+        // Swirling blue sparks
+        for (let i = 0; i < 6; i++) {
+          const a = game.tick * 0.12 + i * (Math.PI/3);
+          const d = blueR + 4;
+          vctx.fillStyle = '#44AAFF';
+          vctx.globalAlpha = 0.6;
+          vctx.fillRect(casterX - 12 + Math.cos(a)*d, casterY + 5 + Math.sin(a)*d, 1.5, 1.5);
+        }
+      } else if (phase < 0.65) {
+        // Blue orb stable + Red orb channeling
+        const p2 = (phase - 0.35) / 0.3;
+        // Blue (stable)
+        vctx.fillStyle = '#2266FF';
+        vctx.globalAlpha = 0.7;
+        vctx.beginPath(); vctx.arc(casterX - 12, casterY + 5, 6, 0, Math.PI*2); vctx.fill();
+        // Red orb forming - right side
+        const redR = 6 * p2;
+        vctx.fillStyle = '#FF2244';
+        vctx.globalAlpha = 0.7 * p2;
+        vctx.beginPath(); vctx.arc(casterX + 12, casterY + 5, redR, 0, Math.PI*2); vctx.fill();
+        vctx.fillStyle = '#FF8888';
+        vctx.globalAlpha = 0.5 * p2;
+        vctx.beginPath(); vctx.arc(casterX + 12, casterY + 5, redR * 0.5, 0, Math.PI*2); vctx.fill();
+        // Swirling red sparks
+        for (let i = 0; i < 6; i++) {
+          const a = -game.tick * 0.12 + i * (Math.PI/3);
+          const d = redR + 4;
+          vctx.fillStyle = '#FF6688';
+          vctx.globalAlpha = 0.6;
+          vctx.fillRect(casterX + 12 + Math.cos(a)*d, casterY + 5 + Math.sin(a)*d, 1.5, 1.5);
+        }
+      } else {
+        // Phase 3: Merge + Purple Beam fires at target
+        const p3 = (phase - 0.65) / 0.35;
+        // Orbs converge to center
+        const mergeX = casterX - 12 + 12 * Math.min(1, p3 * 2);
+        const mergeX2 = casterX + 12 - 12 * Math.min(1, p3 * 2);
+        if (p3 < 0.3) {
+          vctx.fillStyle = '#2266FF'; vctx.globalAlpha = 0.7;
+          vctx.beginPath(); vctx.arc(mergeX, casterY + 5, 6, 0, Math.PI*2); vctx.fill();
+          vctx.fillStyle = '#FF2244'; vctx.globalAlpha = 0.7;
+          vctx.beginPath(); vctx.arc(mergeX2, casterY + 5, 6, 0, Math.PI*2); vctx.fill();
+        }
+        // Purple beam from caster to target
+        if (p3 > 0.2) {
+          const beamProgress = Math.min(1, (p3 - 0.2) / 0.5);
+          const beamEndX = casterX + (sat.x - casterX) * beamProgress;
+          const beamEndY = casterY + 5 + (sat.y + 15 - casterY - 5) * beamProgress;
+          // Beam glow
+          vctx.strokeStyle = '#8800FF';
+          vctx.lineWidth = 5;
+          vctx.globalAlpha = 0.5;
+          vctx.beginPath(); vctx.moveTo(casterX, casterY + 5); vctx.lineTo(beamEndX, beamEndY); vctx.stroke();
+          // Beam core
+          vctx.strokeStyle = '#CC66FF';
+          vctx.lineWidth = 2;
+          vctx.globalAlpha = 0.9;
+          vctx.beginPath(); vctx.moveTo(casterX, casterY + 5); vctx.lineTo(beamEndX, beamEndY); vctx.stroke();
+          // Beam bright core
+          vctx.strokeStyle = '#FFFFFF';
+          vctx.lineWidth = 1;
+          vctx.globalAlpha = 0.7;
+          vctx.beginPath(); vctx.moveTo(casterX, casterY + 5); vctx.lineTo(beamEndX, beamEndY); vctx.stroke();
+          // Impact flash at current beam end
+          if (beamProgress > 0.7) {
+            const impactAlpha = (beamProgress - 0.7) / 0.3;
+            vctx.fillStyle = '#CC66FF';
+            vctx.globalAlpha = impactAlpha * 0.8;
+            vctx.beginPath(); vctx.arc(sat.x, sat.y + 15, 10 + impactAlpha * 8, 0, Math.PI*2); vctx.fill();
+          }
+        }
+        // Purple merge orb
+        vctx.fillStyle = '#8800FF';
+        vctx.globalAlpha = 0.9;
+        vctx.beginPath(); vctx.arc(casterX, casterY + 5, 8 * Math.min(1, p3 * 2), 0, Math.PI*2); vctx.fill();
+      }
+      vctx.restore();
+
+    } else if (b.specialAnim === 'fireArrow') {
+      // Phase 1 (0-0.3): Fire arc forms around Sukuna
+      // Phase 2 (0.3-0.6): Fire arrow launches toward target
+      // Phase 3 (0.6-1.0): Massive fire pillar from sky at target
+      const casterX = 190, casterY = 50;
+      vctx.save();
+
+      if (phase < 0.3) {
+        // Fire arc forming
+        const p1 = phase / 0.3;
+        vctx.strokeStyle = '#FF4400';
+        vctx.lineWidth = 2;
+        vctx.globalAlpha = p1 * 0.8;
+        vctx.beginPath();
+        vctx.arc(casterX, casterY + 10, 12, -Math.PI * p1, 0);
+        vctx.stroke();
+        vctx.strokeStyle = '#FFAA22';
+        vctx.lineWidth = 1;
+        vctx.beginPath();
+        vctx.arc(casterX, casterY + 10, 10, -Math.PI * p1, 0);
+        vctx.stroke();
+        // Gathering fire sparks
+        for (let i = 0; i < Math.floor(8 * p1); i++) {
+          const a = -Math.PI + (Math.PI * i / 8);
+          vctx.fillStyle = i % 2 ? '#FF6600' : '#FFCC00';
+          vctx.globalAlpha = 0.7;
+          vctx.fillRect(casterX + Math.cos(a) * 14, casterY + 10 + Math.sin(a) * 14, 2, 2);
+        }
+      } else if (phase < 0.6) {
+        // Fire arrow flying to target
+        const p2 = (phase - 0.3) / 0.3;
+        const arrowX = casterX + (sat.x - casterX) * p2;
+        const arrowY = casterY + (sat.y + 15 - casterY) * p2 - Math.sin(p2 * Math.PI) * 25;
+        // Arrow trail
+        vctx.strokeStyle = '#FF4400';
+        vctx.lineWidth = 2;
+        vctx.globalAlpha = 0.6;
+        vctx.beginPath(); vctx.moveTo(casterX, casterY + 10); vctx.lineTo(arrowX, arrowY); vctx.stroke();
+        // Arrow head
+        vctx.fillStyle = '#FFAA00';
+        vctx.globalAlpha = 1;
+        vctx.beginPath(); vctx.arc(arrowX, arrowY, 4, 0, Math.PI*2); vctx.fill();
+        vctx.fillStyle = '#FFFFFF';
+        vctx.beginPath(); vctx.arc(arrowX, arrowY, 1.5, 0, Math.PI*2); vctx.fill();
+        // Fire trail embers
+        for (let i = 0; i < 5; i++) {
+          const t = Math.max(0, p2 - i * 0.08);
+          const tx = casterX + (sat.x - casterX) * t;
+          const ty = casterY + (sat.y + 15 - casterY) * t - Math.sin(t * Math.PI) * 25;
+          vctx.fillStyle = '#FF6622';
+          vctx.globalAlpha = 0.4 - i * 0.07;
+          vctx.fillRect(tx + (Math.random()-0.5)*4, ty + (Math.random()-0.5)*4, 2, 2);
+        }
+      } else {
+        // MASSIVE FIRE PILLAR from sky
+        const p3 = (phase - 0.6) / 0.4;
+        const pillarWidth = 14 + p3 * 10;
+        const pillarAlpha = p3 < 0.7 ? p3 / 0.7 : 1 - (p3 - 0.7) / 0.3;
+        // Pillar outer glow
+        vctx.fillStyle = '#FF2200';
+        vctx.globalAlpha = pillarAlpha * 0.4;
+        vctx.fillRect(sat.x - pillarWidth/2 - 4, 0, pillarWidth + 8, sat.y + 30);
+        // Pillar core
+        vctx.fillStyle = '#FF6600';
+        vctx.globalAlpha = pillarAlpha * 0.7;
+        vctx.fillRect(sat.x - pillarWidth/2, 0, pillarWidth, sat.y + 30);
+        // Pillar bright center
+        vctx.fillStyle = '#FFCC44';
+        vctx.globalAlpha = pillarAlpha * 0.9;
+        vctx.fillRect(sat.x - pillarWidth/4, 0, pillarWidth/2, sat.y + 25);
+        // White hot center
+        vctx.fillStyle = '#FFFFFF';
+        vctx.globalAlpha = pillarAlpha * 0.6;
+        vctx.fillRect(sat.x - 2, 0, 4, sat.y + 20);
+        // Ground explosion circle
+        vctx.fillStyle = '#FF4400';
+        vctx.globalAlpha = pillarAlpha * 0.6;
+        vctx.beginPath(); vctx.arc(sat.x, sat.y + 20, 12 + p3 * 8, 0, Math.PI*2); vctx.fill();
+        vctx.fillStyle = '#FFAA22';
+        vctx.globalAlpha = pillarAlpha * 0.4;
+        vctx.beginPath(); vctx.arc(sat.x, sat.y + 20, 18 + p3 * 12, 0, Math.PI*2); vctx.fill();
+      }
+      vctx.restore();
+    }
+  }
+
   // Floating damage/heal numbers
   drawFloatingTexts();
 
@@ -3852,7 +4159,45 @@ function drawHUD() {
 
 // --- MENÚ ---
 function drawMenu() {
+  const m = game.menu;
   drawBox(vctx, 20, 10, VIRT_W - 40, VIRT_H - 20);
+
+  if (m.subMenu === 'party') {
+    // --- PARTY SWAP SCREEN ---
+    drawText(vctx, '--- EQUIPO (máx 3) ---', 56, 16, PAL.gold, 9);
+    // Active party
+    drawText(vctx, 'Activos:', 28, 32, PAL.yellow, 8);
+    game.party.forEach((p, i) => {
+      const sy = 44 + i * 18;
+      const sel = (m.subCursor === i);
+      const highlight = (m.swapSource === i) ? PAL.cyan : (sel ? PAL.yellow : PAL.white);
+      if (sel) drawText(vctx, '▶', 28, sy, PAL.yellow, 7);
+      drawText(vctx, p.name + ' Nv.' + p.level + ' ' + p.class, 38, sy, highlight, 7);
+      drawText(vctx, 'HP:' + p.hp + '/' + p.maxHp, 160, sy, PAL.white, 7);
+    });
+    // Divider
+    const divY = 44 + game.party.length * 18 + 4;
+    vctx.fillStyle = PAL.darkGray;
+    vctx.fillRect(30, divY, VIRT_W - 80, 1);
+    // Reserve
+    drawText(vctx, 'Reserva:', 28, divY + 6, PAL.lightGray, 8);
+    if (game.reserve.length === 0) {
+      drawText(vctx, '(vacía)', 38, divY + 20, PAL.darkGray, 7);
+    } else {
+      game.reserve.forEach((p, i) => {
+        const ry = divY + 20 + i * 18;
+        const idx = game.party.length + i;
+        const sel = (m.subCursor === idx);
+        const highlight = (m.swapSource === idx) ? PAL.cyan : (sel ? PAL.yellow : PAL.white);
+        if (sel) drawText(vctx, '▶', 28, ry, PAL.yellow, 7);
+        drawText(vctx, p.name + ' Nv.' + p.level + ' ' + p.class, 38, ry, highlight, 7);
+        drawText(vctx, 'HP:' + p.hp + '/' + p.maxHp, 160, ry, PAL.white, 7);
+      });
+    }
+    drawText(vctx, 'Enter=Seleccionar/Intercambiar  ESC=Volver', 28, VIRT_H - 30, PAL.darkGray, 6);
+    return;
+  }
+
   drawText(vctx, '--- MENÚ ---', 80, 16, PAL.gold, 10);
 
   // Party info
@@ -3875,7 +4220,7 @@ function drawMenu() {
     drawText(vctx, item.name + ' x' + item.count, 40, iy + 26 + idx * 10, PAL.lightGray, 7);
   });
 
-  drawText(vctx, 'ESC para cerrar', 75, VIRT_H - 30, PAL.darkGray, 7);
+  drawText(vctx, 'P=Equipo  ESC=Cerrar', 65, VIRT_H - 30, PAL.darkGray, 7);
 }
 
 // --- PANTALLA DE TÍTULO ---
@@ -4205,9 +4550,50 @@ function update() {
 
     case 'menu':
       if (isJustPressed('o') || isJustPressed('O')) { toggleSettings(); break; }
-      if (isJustPressed('Escape') || isJustPressed('m') || isJustPressed('M')) {
-        game.state = 'explore';
-        sfxSelect();
+      if (game.menu.subMenu === 'party') {
+        const total = game.party.length + game.reserve.length;
+        if (isJustPressed('ArrowUp')) { game.menu.subCursor = (game.menu.subCursor - 1 + total) % total; sfxSelect(); }
+        if (isJustPressed('ArrowDown')) { game.menu.subCursor = (game.menu.subCursor + 1) % total; sfxSelect(); }
+        if (isJustPressed('Enter') || isJustPressed(' ')) {
+          const sc = game.menu.subCursor;
+          if (game.menu.swapSource === -1) {
+            game.menu.swapSource = sc;
+            sfxSelect();
+          } else {
+            const src = game.menu.swapSource;
+            if (src !== sc) {
+              // Perform the swap
+              const allMembers = [...game.party, ...game.reserve];
+              const tmp = allMembers[src];
+              allMembers[src] = allMembers[sc];
+              allMembers[sc] = tmp;
+              game.party = allMembers.slice(0, game.party.length);
+              game.reserve = allMembers.slice(game.party.length);
+              sfxSelect();
+            }
+            game.menu.swapSource = -1;
+          }
+        }
+        if (isJustPressed('Escape')) {
+          game.menu.subMenu = null;
+          game.menu.subCursor = 0;
+          game.menu.swapSource = -1;
+          sfxSelect();
+        }
+      } else {
+        if (isJustPressed('p') || isJustPressed('P')) {
+          if (game.reserve.length > 0 || game.party.length > 1) {
+            game.menu.subMenu = 'party';
+            game.menu.subCursor = 0;
+            game.menu.swapSource = -1;
+            sfxSelect();
+          }
+        }
+        if (isJustPressed('Escape') || isJustPressed('m') || isJustPressed('M')) {
+          game.state = 'explore';
+          game.menu.subMenu = null;
+          sfxSelect();
+        }
       }
       break;
 
