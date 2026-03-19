@@ -1,0 +1,10 @@
+{
+  "name": "final-fantasy-catalonia",
+  "version": "1.0.0",
+  "description": "Final Fantasy Catalonia - RPG Demo",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve public",
+    "start": "npx serve public"
+  }
+}
